@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片字幕生成器 - 电影质感长图制作</title>
+    <!-- 引入浏览器小图标 -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+    <!-- 引入 Google Fonts 支持多语言 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Roboto:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Sans+Vietnamese:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <h1>🎬 图片字幕生成器</h1>
+            <p>快速制作具有“切割感”背景的电影对话长图</p>
+        </header>
+
+        <main>
+            <!-- 预览区域 -->
+            <section class="preview-section">
+                <div class="canvas-wrapper">
+                    <canvas id="subtitle-canvas"></canvas>
+                    <div id="drop-zone" class="drop-zone">
+                        <span>拖拽图片至此 或 点击此处上传</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 控制面板 -->
+            <aside class="control-panel">
+                <!-- 基础设置：三个按钮水平均分 -->
+                <div class="control-group basic-group">
+                    <h3>📁 基础设置</h3>
+                    <div class="button-row">
+                        <label class="file-label">
+                            <input type="file" id="image-input" accept="image/*">
+                            <span>选择图片</span>
+                        </label>
+                        <button id="reset-btn" class="secondary-btn">🗑️ 删除图片</button>
+                        <button id="download-btn" class="primary-btn">💾 保存图片</button>
+                    </div>
+                </div>
+
+                <!-- 两个功能栏水平均分 -->
+                <div class="settings-grid">
+                    <!-- 左侧：字幕设置 -->
+                    <div class="control-group subtitle-group">
+                        <h3>💬 字幕设置</h3>
+                        <p class="hint">按回车键(Enter)换行</p>
+                        <textarea id="subtitle-text" placeholder="在这里输入你的台词..."></textarea>
+
+                        <div class="style-sub-panel">
+                            <div class="field">
+                                <label>选择字体</label>
+                                <select id="font-family">
+                                    <option value="'Noto Sans SC', sans-serif">中文 (Noto Sans SC)</option>
+                                    <option value="'Roboto', sans-serif">英语 (Roboto)</option>
+                                    <option value="'Noto Sans Thai', sans-serif">泰文 (Thai)</option>
+                                    <option value="'Noto Sans Vietnamese', sans-serif">越南文 (Vietnamese)</option>
+                                    <option value="'Noto Sans Arabic', sans-serif">阿拉伯文 (Arabic)</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>字号: <span id="font-size-val">20</span>px</label>
+                                <input type="range" id="font-size" min="10" max="100" value="20">
+                            </div>
+                            <div class="field">
+                                <label>字体颜色 / 描边颜色</label>
+                                <div class="color-pickers">
+                                    <input type="color" id="font-color" value="#ffffff" title="文字颜色">
+                                    <input type="color" id="stroke-color" value="#000000" title="描边颜色">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="field">
+                                    <label>字幕高度: <span id="bar-height-val">40</span>px</label>
+                                    <input type="range" id="bar-height" min="20" max="200" value="40">
+                                </div>
+                                <div class="field">
+                                    <label>安全边距: <span id="padding-x-val">20</span>px</label>
+                                    <input type="range" id="padding-x" min="0" max="100" value="20">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：水印设置 -->
+                    <div class="control-group watermark-group">
+                        <h3>📑 水印设置</h3>
+                        <div class="field inline">
+                            <label for="wm-enable">启用水印</label>
+                            <input type="checkbox" id="wm-enable">
+                        </div>
+                        <div id="wm-controls" class="disabled-group">
+                            <div class="field">
+                                <label>水印内容</label>
+                                <input type="text" id="wm-text" value="公众号：影子AI之旅">
+                            </div>
+                            <div class="field">
+                                <label>水印位置</label>
+                                <select id="wm-pos">
+                                    <option value="bottom-right">右下角</option>
+                                    <option value="bottom-left">左下角</option>
+                                    <option value="top-right">右上角</option>
+                                    <option value="top-left">左上角</option>
+                                    <option value="center">居中</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>不透明度: <span id="wm-opacity-val">0.5</span></label>
+                                <input type="range" id="wm-opacity" min="0" max="1" step="0.1" value="0.5">
+                            </div>
+                            <div class="field">
+                                <label>水印大小: <span id="wm-size-val">16</span>px</label>
+                                <input type="range" id="wm-size" min="10" max="50" value="16">
+                            </div>
+                            <div class="field">
+                                <label>文字颜色</label>
+                                <input type="color" id="wm-color" value="#ffffff">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Toast 提示容器 -->
+    <div id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

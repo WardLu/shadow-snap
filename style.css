@@ -1,0 +1,443 @@
+:root {
+    --bg-color: #0d1017;
+    --card-bg: rgba(255, 255, 255, 0.05);
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --text-primary: #ffffff;
+    --text-secondary: #aab2c0;
+    --border-color: rgba(255, 255, 255, 0.12);
+    --glass-blur: blur(20px);
+    --radius-lg: 16px;
+    --radius-md: 10px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.5;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.app-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 2rem;
+    max-width: 1920px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 0.8rem;
+}
+
+header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+}
+
+header p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.2rem;
+}
+
+main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* 预览区域 */
+.preview-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    backdrop-filter: var(--glass-blur);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.5);
+}
+
+.canvas-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8);
+}
+
+.drop-zone {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-secondary);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    text-align: center;
+    z-index: 10;
+}
+
+.drop-zone span {
+    display: block;
+    width: 100%;
+    font-size: 1.2rem;
+    font-weight: 500;
+    padding: 0 2rem;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+}
+
+.drop-zone.hidden {
+    display: none;
+}
+
+/* 控制面板 - 优化为单屏显示 */
+.control-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.2rem;
+    backdrop-filter: var(--glass-blur);
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    overflow: hidden;
+    /* 禁用滚动 */
+    box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.5);
+}
+
+.control-group {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.control-group h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.7rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.6rem;
+}
+
+/* 三按钮水平布局 */
+.button-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.button-row>* {
+    flex: 1;
+}
+
+/* 两列功能区 - 压缩间距但保持易用 */
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    flex: 1;
+    min-height: 0;
+    /* 关键：允许内容压缩 */
+    overflow: hidden;
+}
+
+.settings-grid>div {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* 输入组件样式 */
+textarea {
+    width: 100%;
+    height: 110px;
+    /* 压缩高度但保持舒适 */
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: white;
+    padding: 0.8rem;
+    resize: none;
+    font-family: inherit;
+    font-size: 0.9rem;
+    margin-bottom: 0.8rem;
+    transition: border-color 0.3s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.style-sub-panel {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.8rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.field {
+    margin-bottom: 0;
+    /* 通过 gap 控制间距 */
+}
+
+.field label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+}
+
+/* 统一输入框与下拉框样式 - 适度压缩 */
+select,
+input[type="text"] {
+    width: 100%;
+    height: 40px;
+    /* 适度压缩但保持可点击性 */
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: white;
+    padding: 0 0.8rem;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+select:focus,
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+}
+
+.color-pickers {
+    display: flex;
+    gap: 0.6rem;
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent-color);
+    height: 6px;
+    cursor: pointer;
+}
+
+input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+}
+
+.color-pickers input[type="color"] {
+    flex: 1;
+}
+
+.file-label {
+    background: var(--accent-color);
+    color: white;
+    height: 44px;
+    text-align: center;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+}
+
+.file-label:hover {
+    background: var(--accent-hover);
+}
+
+.secondary-btn {
+    height: 44px;
+    background: rgba(255, 59, 59, 0.1);
+    color: #ff4d4d;
+    border: 1px solid rgba(255, 59, 59, 0.3);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+}
+
+.secondary-btn:hover {
+    background: rgba(255, 59, 59, 0.2);
+    border-color: #ff4d4d;
+}
+
+.primary-btn {
+    height: 44px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+}
+
+.file-label input {
+    display: none;
+}
+
+/* 水印控制面板 */
+.field.inline {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+}
+
+.field.inline label {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+.disabled-group {
+    opacity: 0.2;
+    pointer-events: none;
+    filter: grayscale(1);
+    transition: 0.4s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.disabled-group.active {
+    opacity: 1;
+    pointer-events: auto;
+    filter: none;
+}
+
+/* Toast 优化 */
+#toast-container {
+    position: fixed;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+}
+
+.toast {
+    background: #ef4444;
+    color: white;
+    padding: 0.9rem 1.8rem;
+    border-radius: var(--radius-md);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+    margin-bottom: 0.8rem;
+    animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), fadeOut 0.5s ease-in 2.5s forwards;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+@keyframes toastIn {
+    from {
+        transform: scale(0.8) translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        transform: translateY(-15px);
+    }
+}
+
+@media (max-width: 1200px) {
+    .app-container {
+        padding: 1rem;
+    }
+
+    main {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+    }
+
+    body {
+        overflow-y: auto;
+        height: auto;
+    }
+
+    .preview-section {
+        aspect-ratio: 16/9;
+        min-height: 350px;
+    }
+}
