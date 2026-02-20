@@ -1,12 +1,12 @@
 /**
- * 影子字幕拼图 - 核心逻辑 V5.0
+ * 影瞬 Shadow Snap - 核心逻辑 V5.0
  * 优化：i18n国际化支持，打赏功能，界面细节优化
  */
 
 const TRANS = {
     zh: {
-        page_title: "影子字幕拼图",
-        header_title: "<img src='public/brand_assets/shadow_subtitle_puzzle.svg' alt='Logo' class='header-logo'> 影子字幕拼图",
+        page_title: "影瞬",
+        header_title: "<img src='public/brand_assets/shadow_snap.svg' alt='Logo' class='header-logo'> 影瞬",
         header_desc: "快速制作具有'切割感'背景的电影对话长图",
         drop_zone_text: "拖拽图片至此 或 点击此处上传",
         group_basic: "📁 基础设置",
@@ -47,8 +47,8 @@ const TRANS = {
         default_wm: "公众号：影子AI之旅"
     },
     en: {
-        page_title: "Shadow Subtitle Puzzle",
-        header_title: "<img src='public/brand_assets/shadow_subtitle_puzzle.svg' alt='Logo' class='header-logo'> Shadow Subtitle Puzzle",
+        page_title: "Shadow Snap",
+        header_title: "<img src='public/brand_assets/shadow_snap.svg' alt='Logo' class='header-logo'> Shadow Snap",
         header_desc: "Create cinematic long images with 'cut-out' backgrounds",
         drop_zone_text: "Drag & Drop Image Here or Click to Upload",
         group_basic: "📁 Basic Settings",
@@ -85,7 +85,7 @@ const TRANS = {
         toast_save_success: "Image saved successfully!",
         toast_save_fail: "Failed to save. Please select an image first.",
         toast_invalid_file: "Please upload a valid image file.",
-        default_text: "Welcome to Shadow Subtitle Puzzle\nCreate movie-like subtitles easily.\nJust upload and type!",
+        default_text: "Welcome to Shadow Snap\nCreate movie-like subtitles easily.\nJust upload and type!",
         default_wm: "Created by SubtitleGen"
     }
 };
