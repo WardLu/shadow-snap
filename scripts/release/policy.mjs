@@ -296,7 +296,7 @@ function stripYamlStringsAndComments(line) {
       result += ' ';
       continue;
     }
-    if (character === '#') break;
+    if (character === '#' && (index === 0 || /\s/.test(line[index - 1]))) break;
     result += character;
   }
   return result;
@@ -328,7 +328,9 @@ function stripYamlComment(line) {
       quote = character;
       continue;
     }
-    if (character === '#') return line.slice(0, index);
+    if (character === '#' && (index === 0 || /\s/.test(line[index - 1]))) {
+      return line.slice(0, index);
+    }
   }
   return line;
 }
@@ -381,7 +383,7 @@ function yamlStructuralLine(line, initialFlowDepth = 0) {
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
     if (character !== '"' && character !== "'") {
-      if (character === '#') break;
+      if (character === '#' && (index === 0 || /\s/.test(line[index - 1]))) break;
       if (character === '}' || character === ']') {
         flowDepth = Math.max(0, flowDepth - 1);
       } else if (
@@ -459,6 +461,7 @@ function scanYamlLines(text) {
   let flowDepth = 0;
   for (const sourceLine of text.split(/\r?\n/)) {
     const sourceIndent = sourceLine.match(/^\s*/)?.[0].length ?? 0;
+    const flowDepthBefore = flowDepth;
     let line = sourceLine;
     if (blockScalarIndent !== null) {
       if (sourceLine.trim() === '' || sourceIndent > blockScalarIndent) {
@@ -487,6 +490,7 @@ function scanYamlLines(text) {
       raw: line,
       text: structural.text,
       indent: sourceIndent,
+      flowDepthBefore,
       escapedKey: structural.escapedKey,
       skipped,
     });
@@ -673,6 +677,14 @@ function hasUnsupportedPermissionStructure(text) {
     }
     if (
       /[{,]\s*\??\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*permissions\s*:/.test(
+        structural.text,
+      )
+    ) {
+      return true;
+    }
+    if (
+      line.flowDepthBefore > 0 &&
+      /^\s*\??\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*permissions\s*:/.test(
         structural.text,
       )
     ) {
