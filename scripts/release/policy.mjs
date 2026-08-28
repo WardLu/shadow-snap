@@ -562,7 +562,7 @@ function hasUnsupportedPermissionStructure(text) {
       return true;
     }
     if (
-      /[{,]\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*permissions\s*:/.test(
+      /[{,]\s*\??\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*permissions\s*:/.test(
         structural.text,
       )
     ) {
