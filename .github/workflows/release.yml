@@ -33,7 +33,7 @@ jobs:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          npm run release:admit -- --tag "$RELEASE_TAG" --hosted
+          node scripts/release/cli.mjs admit --tag "$RELEASE_TAG" --hosted
           echo "evidence_sha256=$(sha256sum ".release-state/$RELEASE_TAG/release-admission.json" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
       - name: Upload admission evidence
         uses: actions/upload-artifact@v4

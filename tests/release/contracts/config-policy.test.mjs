@@ -43,6 +43,13 @@ test('rejects writable workflow permissions and npm lifecycle hooks', () => {
       'steps:\n  - run: npm ci\n',
     ).includes('workflow_npm_lifecycle_forbidden'),
   );
+  for (const command of ['npm ci --ignore-scripts=false', 'npm --ignore-scripts=false ci']) {
+    assert.ok(
+      scanWorkflowText('.github/workflows/unsafe-ignore-value.yml', `steps:\n  - run: ${command}\n`).includes(
+        'workflow_npm_lifecycle_forbidden',
+      ),
+    );
+  }
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/safe-install.yml',
@@ -65,7 +72,7 @@ test('does not reject the read-only admission workflow', () => {
     '  contents: read',
     '  actions: read',
     'steps:',
-    "  - run: npm run release:admit -- --tag '$GITHUB_REF_NAME' --hosted",
+    "  - run: node scripts/release/cli.mjs admit --tag '$GITHUB_REF_NAME' --hosted",
   ].join('\n');
 
   assert.deepEqual(
@@ -145,7 +152,7 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     ['workflow_npm_write_forbidden'],
   );
   assert.deepEqual(
-    scanWorkflowText('.github/workflows/release.yml', 'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: npm run release:admit -- --tag v1.2.3 --hosted\n'),
+    scanWorkflowText('.github/workflows/release.yml', 'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: node scripts/release/cli.mjs admit --tag v1.2.3 --hosted\n'),
     [],
   );
   assert.deepEqual(

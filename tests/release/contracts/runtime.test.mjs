@@ -119,7 +119,7 @@ async function tempRepository() {
   );
   await writeFile(
     path.join(root, '.github/workflows/release.yml'),
-    'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted\n',
+    'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: node scripts/release/cli.mjs admit --tag "$RELEASE_TAG" --hosted\n',
   );
   return { root, config };
 }
@@ -161,7 +161,7 @@ function gitFactsRunner({ root, config, release } = {}) {
       }
       if (args[0] === 'show' && args[1].endsWith(':.github/workflows/release.yml')) {
         return {
-          stdout: 'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted\n',
+          stdout: 'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: node scripts/release/cli.mjs admit --tag "$RELEASE_TAG" --hosted\n',
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
         };

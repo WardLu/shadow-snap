@@ -52,6 +52,17 @@ import {
 
 const ZERO_SHA = '0'.repeat(40);
 const ADMISSION_RECEIPT_ASSET = 'release-admission-receipt.json';
+const ADMISSION_UNSET_ENV = [
+  'GH_TOKEN',
+  'GITHUB_TOKEN',
+  'VERCEL_TOKEN',
+  'VERCEL_OIDC_TOKEN',
+  'NPM_TOKEN',
+  'SUPABASE_ACCESS_TOKEN',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+];
 
 function fail(reasonCode) {
   throw new Error(reasonCode);
@@ -1163,7 +1174,10 @@ async function runAdmission({
     });
     worktreeRegistered = true;
     for (const [command, ...args] of config.admissionCommands) {
-      const result = await runner(command, args, { cwd: checkout });
+      const result = await runner(command, args, {
+        cwd: checkout,
+        unsetEnv: ADMISSION_UNSET_ENV,
+      });
       commandResults.push({
         command,
         args,

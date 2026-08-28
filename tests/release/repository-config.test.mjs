@@ -50,6 +50,14 @@ test('rejects unknown keys and unsafe paths', async () => {
       }),
     /vercel_json_path_invalid/,
   );
+  assert.throws(
+    () =>
+      validateReleaseConfig({
+        ...config,
+        admissionCommands: [['npm', 'ci']],
+      }),
+    /admission_commands_not_allowlisted/,
+  );
 });
 
 test('package scripts expose every release phase without dependencies', async () => {

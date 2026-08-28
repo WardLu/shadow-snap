@@ -36,17 +36,18 @@
   "admissionCommands": [
     [
       "npm",
-      "ci"
+      "ci",
+      "--ignore-scripts"
     ],
     [
-      "npm",
-      "run",
-      "test:release-controller"
+      "node",
+      "--test",
+      "tests/release/contracts/*.test.mjs",
+      "tests/release/repository-config.test.mjs"
     ],
     [
-      "npm",
-      "run",
-      "validate:static"
+      "node",
+      "scripts/validate-static-site.mjs"
     ]
   ]
 }

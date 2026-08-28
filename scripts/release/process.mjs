@@ -34,6 +34,7 @@ export function createCommandRunner({ spawnSyncImpl = spawnSync } = {}) {
     {
       cwd = process.cwd(),
       env = {},
+      unsetEnv = [],
       input,
       allowExitCodes = [0],
       maxBuffer = DEFAULT_MAX_BUFFER,
@@ -43,10 +44,19 @@ export function createCommandRunner({ spawnSyncImpl = spawnSync } = {}) {
     if (!Array.isArray(allowExitCodes) || allowExitCodes.some((code) => !Number.isInteger(code))) {
       throw new TypeError('allow_exit_codes_invalid');
     }
+    if (
+      !Array.isArray(unsetEnv) ||
+      unsetEnv.some((name) => typeof name !== 'string' || name.length === 0)
+    ) {
+      throw new TypeError('unset_env_invalid');
+    }
+
+    const childEnv = { ...process.env, ...env };
+    for (const name of unsetEnv) delete childEnv[name];
 
     const result = spawnSyncImpl(command, args, {
       cwd,
-      env: { ...process.env, ...env },
+      env: childEnv,
       input,
       encoding: 'utf8',
       maxBuffer,

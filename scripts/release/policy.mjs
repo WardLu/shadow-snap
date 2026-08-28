@@ -148,13 +148,18 @@ function consumeNpmOptions(tokens, start) {
   let index = start;
   let invalid = false;
   let ignoreScripts = false;
+  let invalidIgnoreScripts = false;
   while (index < tokens.length) {
     const token = tokens[index]?.value;
     if (!isNpmOption(token) || token === '--') break;
     const equals = token.indexOf('=');
     if (equals !== -1) {
       const option = token.slice(0, equals);
-      if (option === '--ignore-scripts') ignoreScripts = true;
+      if (option === '--ignore-scripts') {
+        const value = token.slice(equals + 1);
+        if (value === 'true') ignoreScripts = true;
+        else invalidIgnoreScripts = true;
+      }
       if (
         !NPM_OPTIONS_WITH_VALUE.has(option) &&
         !NPM_OPTIONS_WITHOUT_VALUE.has(option)
@@ -182,7 +187,7 @@ function consumeNpmOptions(tokens, start) {
       if (index < tokens.length && !isNpmOption(tokens[index]?.value)) index += 1;
     }
   }
-  return { index, invalid, ignoreScripts };
+  return { index, invalid, ignoreScripts, invalidIgnoreScripts };
 }
 
 function parseNpmInvocations(text) {
@@ -239,6 +244,9 @@ function parseNpmInvocations(text) {
           ({ value }) =>
             value === '--ignore-scripts' || value.startsWith('--ignore-scripts='),
         ),
+      invalidIgnoreScripts:
+        globalOptions.invalidIgnoreScripts ||
+        commandOptions.invalidIgnoreScripts,
     });
   }
   return { invocations, invalidOption, dynamicLauncher };
@@ -276,12 +284,12 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
   }
-  if (
-    /\bpermissions:\s*(?:write-all|write)\b/i.test(normalized) ||
-    /\b(?:contents|actions|checks|deployments|id-token|packages|pull-requests|security-events):\s*write\b/i.test(
-      normalized,
-    )
-  ) {
+  const permissionValuePattern =
+    /\b(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|metadata):\s*["']?([A-Za-z-]+)["']?/gi;
+  const writablePermission = [...normalized.matchAll(permissionValuePattern)].some(
+    (match) => !['read', 'none'].includes(match[1].toLowerCase()),
+  );
+  if (/\bpermissions:\s*(?:write-all|write)\b/i.test(normalized) || writablePermission) {
     findings.push('workflow_permission_write_forbidden');
   }
   if (
@@ -306,7 +314,8 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
     findings.push('workflow_dynamic_gh_api_write_forbidden');
   }
   const unsafeLocalRunner = /\brun:\s*(?:\||>)?[\s\S]*?\b(?:node|python\d*|bash|sh|npx)\s+[^\r\n]*(?:deploy|production|promote|rollback|publish|release)[^\r\n]*/i;
-  if (unsafeLocalRunner.test(text)) {
+  const safeAdmissionCommand = /^\s*(?:(?:-\s+)?run:\s+)?node\s+scripts\/release\/cli\.mjs\s+admit\s+--tag\s+(?:["']?\$[A-Za-z_][A-Za-z0-9_]*["']?|v[0-9A-Za-z.-]+)\s+--hosted\s*$/gim;
+  if (unsafeLocalRunner.test(text.replace(safeAdmissionCommand, ''))) {
     findings.push('workflow_dynamic_local_write_forbidden');
   }
   if (npmParse.dynamicLauncher || hasDynamicNpmInvocation(npmInvocations)) {
@@ -314,7 +323,7 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   }
   for (const invocation of npmInvocations) {
     if (invocation.kind === 'install') {
-      if (!invocation.ignoreScripts) {
+      if (!invocation.ignoreScripts || invocation.invalidIgnoreScripts) {
         findings.push('workflow_npm_lifecycle_forbidden');
       }
       continue;
@@ -356,6 +365,7 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
       const nestedParse = parseNpmInvocations(command);
       if (
         nestedParse.invalidOption ||
+        nestedParse.invalidIgnoreScripts ||
         nestedParse.dynamicLauncher ||
         hasDynamicNpmInvocation(nestedParse.invocations)
       ) return true;

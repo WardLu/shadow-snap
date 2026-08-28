@@ -88,6 +88,17 @@ function stableValue(value) {
   return value;
 }
 
+const EXPECTED_ADMISSION_COMMANDS = [
+  ['npm', 'ci', '--ignore-scripts'],
+  [
+    'node',
+    '--test',
+    'tests/release/contracts/*.test.mjs',
+    'tests/release/repository-config.test.mjs',
+  ],
+  ['node', 'scripts/validate-static-site.mjs'],
+];
+
 export function validateReleaseConfig(value) {
   assertExactKeys(value, ROOT_KEYS, 'release_config_key_unknown');
   if (value.schemaVersion !== 1) fail('release_config_schema_unsupported');
@@ -166,6 +177,12 @@ export function validateReleaseConfig(value) {
     if (command.some((part) => typeof part !== 'string' || part.length === 0 || part.includes('\0'))) {
       fail('admission_command_invalid');
     }
+  }
+  if (
+    JSON.stringify(stableValue(value.admissionCommands)) !==
+    JSON.stringify(stableValue(EXPECTED_ADMISSION_COMMANDS))
+  ) {
+    fail('admission_commands_not_allowlisted');
   }
   return value;
 }
