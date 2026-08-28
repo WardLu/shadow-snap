@@ -321,13 +321,29 @@ function stripYamlComment(line) {
       }
       continue;
     }
-    if (character === '"' || character === "'") {
+    if (
+      (character === '"' || character === "'") &&
+      yamlQuoteStartsAtNode(line, index)
+    ) {
       quote = character;
       continue;
     }
     if (character === '#') return line.slice(0, index);
   }
   return line;
+}
+
+function yamlQuoteStartsAtNode(line, index) {
+  const prefix = line.slice(0, index);
+  const previous = prefix.match(/\S(?=\s*$)/)?.[0];
+  if (!previous) return true;
+  if (':,[{?'.includes(previous)) return true;
+  if (previous === '-') {
+    const dashIndex = prefix.lastIndexOf('-');
+    if (/^\s*$/.test(prefix.slice(0, dashIndex))) return true;
+  }
+  const token = prefix.trim().split(/\s+/).at(-1);
+  return /^(?:!{1,2}(?:\S+)?|&\S+)$/.test(token ?? '');
 }
 
 function yamlStructuralLine(line) {
@@ -341,6 +357,10 @@ function yamlStructuralLine(line) {
       continue;
     }
 
+    if (!yamlQuoteStartsAtNode(line, index)) {
+      result += character;
+      continue;
+    }
     const quote = character;
     const start = index;
     let content = '';
@@ -394,7 +414,10 @@ function yamlQuoteState(line, initialQuote = null) {
       }
       continue;
     }
-    if (character === '"' || character === "'") {
+    if (
+      (character === '"' || character === "'") &&
+      yamlQuoteStartsAtNode(line, index)
+    ) {
       quote = character;
       continue;
     }
@@ -422,45 +445,80 @@ function yamlQuoteCloseIndex(line, quote) {
   return -1;
 }
 
-function extractPermissionBlocks(text) {
-  const lines = text.split(/\r?\n/);
-  const blocks = [];
+function scanYamlLines(text) {
+  const lines = [];
   let blockScalarIndent = null;
-  for (let index = 0; index < lines.length; index += 1) {
-    const sanitized = stripYamlStringsAndComments(lines[index]);
-    const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
+  let multilineQuote = null;
+  for (const sourceLine of text.split(/\r?\n/)) {
+    const sourceIndent = sourceLine.match(/^\s*/)?.[0].length ?? 0;
+    let line = sourceLine;
     if (blockScalarIndent !== null) {
-      if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
+      if (sourceLine.trim() === '' || sourceIndent > blockScalarIndent) {
+        lines.push({ raw: sourceLine, text: '', indent: sourceIndent, skipped: true });
+        continue;
+      }
       blockScalarIndent = null;
     }
-    if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
-      blockScalarIndent = indent;
+    if (multilineQuote !== null) {
+      const closeIndex = yamlQuoteCloseIndex(line, multilineQuote);
+      if (closeIndex === -1) {
+        lines.push({ raw: sourceLine, text: '', indent: sourceIndent, skipped: true });
+        continue;
+      }
+      multilineQuote = null;
+      line = line.slice(closeIndex + 1);
+      if (line.trim() === '') {
+        lines.push({ raw: line, text: '', indent: sourceIndent, skipped: true });
+        continue;
+      }
+    }
+    const structural = yamlStructuralLine(line);
+    const blockScalar = /:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(structural.text);
+    const skipped = structural.text.trim() === '';
+    lines.push({
+      raw: line,
+      text: structural.text,
+      indent: sourceIndent,
+      escapedKey: structural.escapedKey,
+      skipped,
+    });
+    if (blockScalar) {
+      blockScalarIndent = sourceIndent;
       continue;
     }
-    const uncommented = stripYamlComment(lines[index]);
+    multilineQuote = yamlQuoteState(line);
+  }
+  return lines;
+}
+
+function extractPermissionBlocks(text) {
+  const lines = scanYamlLines(text);
+  const blocks = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.skipped) continue;
     const match = /^(\s*)(?:(?:!{1,2}(?:[^\s]+)?|&[^\s]+)\s+)*(?:permissions|["']permissions["'])\s*:(.*)$/.exec(
-      uncommented,
+      line.text,
     );
     if (!match) continue;
 
     const parentIndent = match[1].length;
-    const block = [lines[index].slice(lines[index].indexOf(':') + 1)];
+    const block = [line.raw.slice(line.raw.indexOf(':') + 1)];
     let next = index + 1;
     for (; next < lines.length; next += 1) {
-      const nextSanitized = stripYamlStringsAndComments(lines[next]);
-      if (nextSanitized.trim() === '') {
-        block.push(lines[next]);
+      const nextLine = lines[next];
+      if (nextLine.skipped) {
+        block.push(nextLine.raw);
         continue;
       }
-      const nextIndent = nextSanitized.match(/^\s*/)?.[0].length ?? 0;
-      if (nextIndent <= parentIndent) break;
-      block.push(lines[next]);
+      if (nextLine.indent <= parentIndent) break;
+      block.push(nextLine.raw);
     }
     index = next - 1;
     blocks.push({
       indent: parentIndent,
       value: block.join('\n'),
-      taggedKey: /^(?:\s*)(?:(?:!{1,2}(?:[^\s]+)?|&[^\s]+)\s+)+/.test(uncommented),
+      taggedKey: /^(?:\s*)(?:(?:!{1,2}(?:[^\s]+)?|&[^\s]+)\s+)+/.test(line.text),
     });
   }
   return blocks;
@@ -483,27 +541,17 @@ function hasPermissionValue(permissionsBlock, scope, value) {
 }
 
 function hasYamlAnchorOrAlias(text) {
-  let blockScalarIndent = null;
-  for (const line of text.split(/\r?\n/)) {
-    const sanitized = stripYamlStringsAndComments(line);
-    const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
-    if (blockScalarIndent !== null) {
-      if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
-      blockScalarIndent = null;
-    }
-    if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
-      blockScalarIndent = indent;
-      continue;
-    }
-    for (let index = 0; index < sanitized.length; index += 1) {
-      if (sanitized[index] !== '&' && sanitized[index] !== '*') continue;
-      const previous = sanitized.slice(0, index).match(/\S(?=\s*$)/)?.[0];
+  for (const line of scanYamlLines(text)) {
+    if (line.skipped) continue;
+    for (let index = 0; index < line.text.length; index += 1) {
+      if (line.text[index] !== '&' && line.text[index] !== '*') continue;
+      const previous = line.text.slice(0, index).match(/\S(?=\s*$)/)?.[0];
       if (previous && !':,[{?'.includes(previous)) {
         if (previous !== '-') continue;
-        const dashIndex = sanitized.slice(0, index).lastIndexOf('-');
-        if (!/^\s*$/.test(sanitized.slice(0, dashIndex))) continue;
+        const dashIndex = line.text.slice(0, index).lastIndexOf('-');
+        if (!/^\s*$/.test(line.text.slice(0, dashIndex))) continue;
       }
-      const following = sanitized[index + 1];
+      const following = line.text[index + 1];
       if (!following || /\s|[\[\]{},]/.test(following)) continue;
       return true;
     }
@@ -512,34 +560,13 @@ function hasYamlAnchorOrAlias(text) {
 }
 
 function hasUnsupportedPermissionStructure(text) {
-  let blockScalarIndent = null;
   let jobsIndent = null;
   let jobIndent = null;
   let stepsIndent = null;
-  let multilineQuote = null;
-  for (const sourceLine of text.split(/\r?\n/)) {
-    const sourceIndent = sourceLine.match(/^\s*/)?.[0].length ?? 0;
-    let line = sourceLine;
-    if (blockScalarIndent !== null) {
-      const blockLine = stripYamlStringsAndComments(line);
-      const blockIndent = blockLine.match(/^\s*/)?.[0].length ?? 0;
-      if (blockLine.trim() === '' || blockIndent > blockScalarIndent) continue;
-      blockScalarIndent = null;
-    }
-    if (multilineQuote !== null) {
-      const closeIndex = yamlQuoteCloseIndex(line, multilineQuote);
-      if (closeIndex === -1) continue;
-      multilineQuote = null;
-      line = line.slice(closeIndex + 1);
-      if (line.trim() === '') continue;
-    }
-    const sanitized = stripYamlStringsAndComments(line);
-    const indent = sourceIndent;
-    if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
-      blockScalarIndent = indent;
-      continue;
-    }
-    if (sanitized.trim() === '') continue;
+  for (const line of scanYamlLines(text)) {
+    if (line.skipped) continue;
+    const sanitized = line.text;
+    const indent = line.indent;
     if (jobsIndent !== null && indent <= jobsIndent) {
       jobIndent = null;
       stepsIndent = null;
@@ -554,7 +581,7 @@ function hasUnsupportedPermissionStructure(text) {
       if (sanitized.trim() === '' || indent > stepsIndent) continue;
       stepsIndent = null;
     }
-    const uncommented = stripYamlComment(line);
+    const uncommented = stripYamlComment(line.raw);
     if (
       /^\s*\?\s*(?:(?:!{1,2}\S*|&\S+)\s+)*(?:jobs|["']jobs["'])\s*:?\s*$/i.test(
         uncommented,
@@ -590,7 +617,7 @@ function hasUnsupportedPermissionStructure(text) {
       stepsIndent = steps[1].length;
       continue;
     }
-    const structural = yamlStructuralLine(line);
+    const structural = { text: line.text, escapedKey: line.escapedKey };
     if (structural.escapedKey) return true;
     if (/^\s*\?(?:\s+(?:!{1,2}(?:\S+)?|&\S+))?\s*$/.test(uncommented)) {
       return true;
@@ -642,7 +669,6 @@ function hasUnsupportedPermissionStructure(text) {
     ) {
       return true;
     }
-    multilineQuote = yamlQuoteState(line);
   }
   return false;
 }

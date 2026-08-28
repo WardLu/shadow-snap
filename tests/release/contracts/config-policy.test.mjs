@@ -504,6 +504,12 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
         "  OTHER: 'first",
         '    ,? !',
         "    next'",
+        '  PERMISSION_TEXT: "first',
+        '    permissions: write',
+        '    next"',
+        '  ALIAS_TEXT: "first',
+        '    *harmless &harmless',
+        '    next"',
       ].join('\n'),
       { requireExplicitPermissions: true },
     ),
@@ -519,6 +525,20 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
         '    next"}, permissions: {contents: write}, steps: []}',
       ].join('\n'),
     ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/plain-apostrophe-permissions-key.yml',
+      [
+        'permissions: {contents: read, actions: read}',
+        'env:',
+        "  MESSAGE: don't stop",
+        'jobs:',
+        '  deploy:',
+        '    permissions: {contents: write}',
+        '    steps: []',
+      ].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
   );
   assert.ok(
     scanWorkflowText(
