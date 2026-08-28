@@ -470,6 +470,37 @@ async function githubApiPaginatedArray({ runner, repoRoot, endpoint, reasonCode 
   return value.every(Array.isArray) ? value.flat() : value;
 }
 
+async function githubApiPaginatedObjects({
+  runner,
+  repoRoot,
+  endpoint,
+  key,
+  reasonCode,
+}) {
+  const result = await runner('gh', ['api', endpoint, '--paginate', '--slurp'], {
+    cwd: repoRoot,
+  });
+  let value;
+  try {
+    value = JSON.parse(result.stdout);
+  } catch {
+    fail(reasonCode);
+  }
+  const pages = Array.isArray(value) ? value : [value];
+  if (
+    pages.length === 0 ||
+    pages.some(
+      (page) =>
+        !page ||
+        typeof page !== 'object' ||
+        !Array.isArray(page[key]),
+    )
+  ) {
+    fail(reasonCode);
+  }
+  return pages.flatMap((page) => page[key]);
+}
+
 export async function verifyBillingFallback({
   runner,
   repoRoot,
@@ -477,23 +508,30 @@ export async function verifyBillingFallback({
   targetSha,
   expectedProof = null,
 }) {
-  const runs = await githubApiJson({
+  const matchingRuns = await githubApiPaginatedObjects({
     runner,
     repoRoot,
-    endpoint: `/repos/${repository}/actions/workflows/release.yml/runs?head_sha=${targetSha}&event=push&per_page=100`,
+    endpoint: `/repos/${repository}/actions/workflows/release.yml/runs?head_sha=${targetSha}&per_page=100`,
+    key: 'workflow_runs',
     reasonCode: 'billing_fallback_runs_json_invalid',
   });
-  if (!Array.isArray(runs.workflow_runs)) fail('billing_fallback_runs_shape_invalid');
-  const matchingRuns = runs.workflow_runs.filter(
+  const relevantRuns = matchingRuns.filter(
     (run) =>
       run.head_sha === targetSha &&
-      run.event === 'push' &&
+      ['push', 'workflow_dispatch'].includes(run.event) &&
       run.path?.split('@')[0] === '.github/workflows/release.yml',
   );
-  if (matchingRuns.some((run) => run.status === 'completed' && run.conclusion === 'success')) {
+  if (relevantRuns.length === 0) fail('billing_fallback_failed_run_missing');
+  if (relevantRuns.some((run) => run.status !== 'completed')) {
+    fail('billing_fallback_run_not_terminal');
+  }
+  if (relevantRuns.some((run) => run.conclusion === 'success')) {
     fail('billing_fallback_not_needed');
   }
-  const failedRuns = matchingRuns.filter(
+  if (relevantRuns.some((run) => run.conclusion !== 'failure')) {
+    fail('billing_fallback_run_conclusion_invalid');
+  }
+  const failedRuns = relevantRuns.filter(
     (run) => run.status === 'completed' && run.conclusion === 'failure',
   );
   if (failedRuns.length === 0) fail('billing_fallback_failed_run_missing');
@@ -502,27 +540,32 @@ export async function verifyBillingFallback({
   for (const failedRun of failedRuns) {
     if (!Number.isInteger(failedRun.id)) fail('billing_fallback_failed_run_missing');
     if (!Number.isInteger(failedRun.run_attempt)) fail('billing_fallback_run_attempt_missing');
-    const jobs = await githubApiJson({
+    const runJobsPayload = await githubApiPaginatedObjects({
       runner,
       repoRoot,
       endpoint: `/repos/${repository}/actions/runs/${failedRun.id}/jobs?filter=all&per_page=100`,
+      key: 'jobs',
       reasonCode: 'billing_fallback_jobs_json_invalid',
     });
-    if (!Array.isArray(jobs.jobs)) fail('billing_fallback_jobs_shape_invalid');
-    const runJobs = jobs.jobs.filter(
+    const runJobs = runJobsPayload.filter(
       (job) => job.run_id === failedRun.id && job.head_sha === targetSha,
     );
+    if (runJobs.length === 0) fail('billing_fallback_failed_job_missing');
     if (
       runJobs.some(
         (job) =>
-          job.conclusion === 'failure' &&
-          Array.isArray(job.steps) &&
-          job.steps.length > 0,
+          !Array.isArray(job.steps) ||
+          job.steps.length > 0 ||
+          job.status !== 'completed',
       )
     ) {
-      // A different run for the same SHA may have run real code and failed.
-      // That failure must never be hidden by a separate Billing-blocked run.
-      fail('billing_fallback_code_steps_started');
+      // A different run for the same SHA may have started code or may not
+      // expose a terminal, zero-step job. Neither state can be treated as a
+      // Billing-only infrastructure failure.
+      if (runJobs.some((job) => Array.isArray(job.steps) && job.steps.length > 0)) {
+        fail('billing_fallback_code_steps_started');
+      }
+      fail('billing_fallback_job_not_terminal');
     }
     failedRunJobs.push({ failedRun, runJobs });
   }
@@ -552,16 +595,14 @@ export async function verifyBillingFallback({
     if (!Number.isInteger(checkRunId)) continue;
     if (expectedProof && checkRunId !== expectedProof.checkRunId) continue;
 
-    const checkRuns = await githubApiJson({
+    const checkRuns = await githubApiPaginatedObjects({
       runner,
       repoRoot,
       endpoint: `/repos/${repository}/commits/${targetSha}/check-runs`,
+      key: 'check_runs',
       reasonCode: 'billing_fallback_check_runs_json_invalid',
     });
-    if (!Array.isArray(checkRuns.check_runs)) {
-      fail('billing_fallback_check_runs_shape_invalid');
-    }
-    const checkRun = checkRuns.check_runs.find(
+    const checkRun = checkRuns.find(
       (check) =>
         check.id === checkRunId &&
         check.name === 'admission' &&
@@ -569,13 +610,12 @@ export async function verifyBillingFallback({
         Number(check.output?.annotations_count) > 0,
     );
     if (!Number.isInteger(checkRun?.id)) continue;
-    const annotations = await githubApiJson({
+    const annotations = await githubApiPaginatedArray({
       runner,
       repoRoot,
       endpoint: `/repos/${repository}/check-runs/${checkRun.id}/annotations`,
       reasonCode: 'billing_fallback_annotations_json_invalid',
     });
-    if (!Array.isArray(annotations)) fail('billing_fallback_annotations_shape_invalid');
     const billingAnnotation = annotations.find(
       (annotation) =>
         typeof annotation.message === 'string' &&
@@ -2032,7 +2072,6 @@ async function persistAdmissionReceipt({
   config,
   tag,
   facts,
-  clock,
 }) {
   if (facts.receiptIdentity) {
     return { receiptIdentity: facts.receiptIdentity, alreadyAnchored: true };
@@ -2052,7 +2091,7 @@ async function persistAdmissionReceipt({
       hostedProof: proof,
       billingProof: null,
       artifact,
-      createdAt: clock().toISOString(),
+      createdAt: facts.releasePublishedAt,
     };
   } else if (facts.mode === 'billing-fallback') {
     receipt = {
@@ -2066,7 +2105,7 @@ async function persistAdmissionReceipt({
       hostedProof: null,
       billingProof: facts.provenance,
       artifact: null,
-      createdAt: clock().toISOString(),
+      createdAt: facts.releasePublishedAt,
     };
   } else {
     fail('release_admission_receipt_mode_invalid');
@@ -2147,7 +2186,6 @@ export async function createRuntime({
           config,
           tag,
           facts,
-          clock,
         });
       }
       if (operation === 'initialize') {

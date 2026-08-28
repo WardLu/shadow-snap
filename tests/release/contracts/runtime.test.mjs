@@ -637,10 +637,15 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
     }],
   };
   const base = gitFactsRunner({ root, config, release });
+  let uploadAttempts = 0;
   const runner = async (command, args, options) => {
     if (command === 'gh' && args[0] === 'release' && args[1] === 'upload') {
+      uploadAttempts += 1;
       const filePath = args[3];
       const receiptRaw = await readFile(filePath, 'utf8');
+      if (uploadAttempts === 1) {
+        throw new Error('simulated_upload_failure');
+      }
       release.assets.push({
         id: 2,
         name: 'release-admission-receipt.json',
@@ -669,12 +674,28 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
     config,
     registryPath: path.join(root, 'host-registry.json'),
   });
+  await assert.rejects(
+    runtime.controller['anchor-admission']({
+      repoRoot: root,
+      config,
+      tag: 'v1.2.3',
+      assetId: 1,
+      authorize: preview.authorizationDigest,
+    }),
+    /simulated_upload_failure/,
+  );
+  const retryPreview = await runtime.controller['anchor-admission']({
+    repoRoot: root,
+    config,
+    tag: 'v1.2.3',
+    assetId: 1,
+  });
   const result = await runtime.controller['anchor-admission']({
     repoRoot: root,
     config,
     tag: 'v1.2.3',
     assetId: 1,
-    authorize: preview.authorizationDigest,
+    authorize: retryPreview.authorizationDigest,
   });
   assert.equal(result.status, 'completed');
   assert.equal(result.operationResult.receiptIdentity.id, 2);
@@ -682,6 +703,7 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
     await readFile(path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'), 'utf8'),
   );
   assert.equal(receipt.kind, 'release-admission-receipt');
+  assert.equal(receipt.createdAt, release.published_at);
   assert.equal(receipt.artifact.id, 88);
   assert.equal(receipt.artifact.evidenceSha256, preview.authorization.facts.admissionIdentity.sha256);
 });
@@ -718,6 +740,7 @@ test('Billing fallback accepts only a failed zero-step run with a billing annota
             check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/66',
             name: 'admission',
             conclusion: 'failure',
+            status: 'completed',
             steps: [],
           }],
         }),
@@ -779,7 +802,7 @@ test('Billing fallback rejects code steps or non-billing failures', async () => 
     if (endpoint.includes('/actions/runs/44/jobs')) {
       return {
         stdout: JSON.stringify({
-          jobs: [{ id: 55, run_id: 44, head_sha: TARGET_SHA, check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/66', name: 'admission', conclusion: 'failure', steps: [{ name: 'npm test' }] }],
+          jobs: [{ id: 55, run_id: 44, head_sha: TARGET_SHA, check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/66', name: 'admission', conclusion: 'failure', status: 'completed', steps: [{ name: 'npm test' }] }],
         }),
       };
     }
@@ -812,14 +835,14 @@ test('Billing fallback rejects a billing run when another run for the same SHA e
     if (endpoint.includes('/actions/runs/45/jobs')) {
       return {
         stdout: JSON.stringify({
-          jobs: [{ id: 55, run_id: 45, head_sha: TARGET_SHA, name: 'admission', conclusion: 'failure', steps: [], check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/66' }],
+          jobs: [{ id: 55, run_id: 45, head_sha: TARGET_SHA, name: 'admission', conclusion: 'failure', status: 'completed', steps: [], check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/66' }],
         }),
       };
     }
     if (endpoint.includes('/actions/runs/44/jobs')) {
       return {
         stdout: JSON.stringify({
-          jobs: [{ id: 54, run_id: 44, head_sha: TARGET_SHA, name: 'admission', conclusion: 'failure', steps: [{ name: 'npm test' }] }],
+          jobs: [{ id: 54, run_id: 44, head_sha: TARGET_SHA, name: 'admission', conclusion: 'failure', status: 'completed', steps: [{ name: 'npm test' }] }],
         }),
       };
     }
@@ -836,6 +859,77 @@ test('Billing fallback rejects a billing run when another run for the same SHA e
         workflowRunAttempt: 1,
         jobId: 55,
         checkRunId: 66,
+        annotationSha256: 'a'.repeat(64),
+      },
+    }),
+    /billing_fallback_code_steps_started/,
+  );
+});
+
+test('Billing fallback fails closed for non-terminal or non-failure workflow runs', async () => {
+  for (const run of [
+    { id: 70, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'in_progress', conclusion: null },
+    { id: 71, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'cancelled' },
+  ]) {
+    const runner = async (command, args) => {
+      const endpoint = args[1];
+      if (endpoint.includes('/actions/workflows/release.yml/runs')) {
+        return { stdout: JSON.stringify({ workflow_runs: [run] }) };
+      }
+      throw new Error(`unexpected:${endpoint}`);
+    };
+    await assert.rejects(
+      verifyBillingFallback({
+        runner,
+        repoRoot: '/repo',
+        repository: 'WardLu/shadow-snap',
+        targetSha: TARGET_SHA,
+      }),
+      run.status === 'completed'
+        ? /billing_fallback_run_conclusion_invalid/
+        : /billing_fallback_run_not_terminal/,
+    );
+  }
+});
+
+test('Billing fallback scans all paginated runs before choosing a candidate', async () => {
+  const runner = async (command, args) => {
+    const endpoint = args[1];
+    if (endpoint.includes('/actions/workflows/release.yml/runs')) {
+      return {
+        stdout: JSON.stringify([
+          {
+            workflow_runs: [
+              { id: 80, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+            ],
+          },
+          {
+            workflow_runs: [
+              { id: 81, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+            ],
+          },
+        ]),
+      };
+    }
+    if (endpoint.includes('/actions/runs/80/jobs')) {
+      return { stdout: JSON.stringify([{ jobs: [{ id: 800, run_id: 80, head_sha: TARGET_SHA, status: 'completed', conclusion: 'failure', name: 'admission', steps: [] }] }]) };
+    }
+    if (endpoint.includes('/actions/runs/81/jobs')) {
+      return { stdout: JSON.stringify([{ jobs: [{ id: 810, run_id: 81, head_sha: TARGET_SHA, status: 'completed', conclusion: 'failure', name: 'admission', steps: [{ name: 'npm test' }] }] }]) };
+    }
+    throw new Error(`unexpected:${endpoint}`);
+  };
+  await assert.rejects(
+    verifyBillingFallback({
+      runner,
+      repoRoot: '/repo',
+      repository: 'WardLu/shadow-snap',
+      targetSha: TARGET_SHA,
+      expectedProof: {
+        workflowRunId: 80,
+        workflowRunAttempt: 1,
+        jobId: 800,
+        checkRunId: 801,
         annotationSha256: 'a'.repeat(64),
       },
     }),

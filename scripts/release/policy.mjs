@@ -32,24 +32,7 @@ const SENSITIVE_WORKFLOW_TOKEN = /(?:secrets\.[A-Za-z0-9_]+|GITHUB_TOKEN|GH_TOKE
 const PRODUCTION_API_HOST = /(?:api\.github\.com|api\.vercel\.com|\/repos\/[^\s]+\/(?:git\/refs|releases|deployments)|\/v\d+\/(?:projects|deployments))/i;
 const DYNAMIC_HTTP_CLIENT = /\b(?:curl|wget)\b|\b(?:fetch|axios\.(?:post|put|patch|delete)|https?\.request)\s*\(/i;
 const APPROVED_ACTION = /^(?:actions\/(?:checkout|setup-node|cache|upload-artifact|download-artifact)|github\/codeql-action\/(?:init|analyze|autobuild))@(?:v?[0-9]+|[0-9a-f]{40})$/i;
-const SAFE_NPM_SCRIPTS = new Set([
-  'ci',
-  'test',
-  'lint',
-  'build',
-  'typecheck',
-  'type-check',
-  'format:check',
-  'security:audit',
-  'release:check',
-  'release:admit',
-  'test:release-controller',
-  'test:seo:http',
-  'test:control-plane:local',
-  'test:release-handoff',
-  'test:release-autopilot-contract',
-  'test:release-watcher',
-]);
+const SAFE_NPM_SCRIPTS = new Set(['release:admit']);
 
 // A workflow may only reach a local executable through an explicitly reviewed
 // read-only entrypoint.  Merely allowlisting the npm script name is not enough:
@@ -74,7 +57,6 @@ const NPM_OPTIONS_WITH_VALUE = new Set([
   '--install-strategy',
   '-w',
   '-C',
-  '-p',
 ]);
 const NPM_OPTIONS_WITHOUT_VALUE = new Set([
   '--silent',
@@ -90,10 +72,12 @@ const NPM_OPTIONS_WITHOUT_VALUE = new Set([
   '--package-lock-only',
   '--workspaces',
   '--include-workspace-root',
+  '--parseable',
   '--progress',
   '--json',
   '-s',
   '-q',
+  '-p',
 ]);
 const LOCAL_SCRIPT_PATH = /(?:^|\s)(?:\.{1,2}\/|scripts\/|node_modules\/|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|[A-Za-z0-9_.-]+\.(?:mjs|cjs|js|ts|tsx|py|sh|bash|zsh|rb|pl|go))(?=\s|$)/i;
 function tokenizeShell(text) {
@@ -155,6 +139,11 @@ function isNpmOption(token) {
   return token?.startsWith('--') || /^-[A-Za-z]/.test(token ?? '');
 }
 
+function isNpmExecutable(token) {
+  const normalized = (token ?? '').replace(/[;,]$/, '');
+  return normalized === 'npm' || /(?:^|\/)npm(?:-cli\.js)?$/.test(normalized);
+}
+
 function consumeNpmOptions(tokens, start) {
   let index = start;
   let invalid = false;
@@ -197,8 +186,15 @@ function parseNpmInvocations(text) {
   const tokens = tokenizeShell(text);
   const invocations = [];
   let invalidOption = false;
+  let dynamicLauncher = false;
   for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index].value !== 'npm') continue;
+    if (
+      tokens[index].dynamic &&
+      ['run', 'run-script', 'exec', 'x'].includes(tokens[index + 1]?.value)
+    ) {
+      dynamicLauncher = true;
+    }
+    if (!isNpmExecutable(tokens[index].value)) continue;
     const globalOptions = consumeNpmOptions(tokens, index + 1);
     invalidOption ||= globalOptions.invalid;
     let cursor = globalOptions.index;
@@ -215,7 +211,7 @@ function parseNpmInvocations(text) {
       target,
     });
   }
-  return { invocations, invalidOption };
+  return { invocations, invalidOption, dynamicLauncher };
 }
 
 function hasDynamicNpmInvocation(invocations) {
@@ -268,7 +264,7 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   if (unsafeLocalRunner.test(text)) {
     findings.push('workflow_dynamic_local_write_forbidden');
   }
-  if (hasDynamicNpmInvocation(npmInvocations)) {
+  if (npmParse.dynamicLauncher || hasDynamicNpmInvocation(npmInvocations)) {
     findings.push('workflow_dynamic_npm_write_forbidden');
   }
   for (const invocation of npmInvocations) {
@@ -309,6 +305,7 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
       const nestedParse = parseNpmInvocations(command);
       if (
         nestedParse.invalidOption ||
+        nestedParse.dynamicLauncher ||
         hasDynamicNpmInvocation(nestedParse.invocations)
       ) return true;
       if (nestedParse.invocations.some(({ kind }) => kind === 'exec')) return true;
@@ -321,7 +318,10 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
       if (!name || invocation.target?.dynamic) continue;
       if (scriptWrites(name)) {
         findings.push('workflow_npm_script_write_forbidden');
-      } else if (!SAFE_NPM_SCRIPTS.has(name)) {
+      } else if (
+        !SAFE_NPM_SCRIPTS.has(name) ||
+        !hasReadOnlyScriptEntrypoint(name, scripts[name])
+      ) {
         findings.push('workflow_npm_script_not_allowlisted');
       }
     }

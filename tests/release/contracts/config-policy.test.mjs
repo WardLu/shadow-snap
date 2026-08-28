@@ -138,6 +138,8 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     'npm --prefix=. run release:stage',
     'npm --loglevel silly run release:stage',
     'npm --cache /tmp/cache --prefix . run release:stage',
+    'npm -p run release:stage',
+    '/usr/bin/npm run release:stage',
     'npm run --if-present --silent release:stage',
   ]) {
     assert.deepEqual(
@@ -150,6 +152,16 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
       '.github/workflows/unknown-option.yml',
       'steps:\n  - run: npm --unknown value run release:stage\n',
     ).includes('workflow_npm_option_forbidden'),
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/npm-alias.yml', 'steps:\n  - run: /usr/bin/npm run release:stage\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/dynamic-npm.yml',
+      'steps:\n  - run: NPM=$(command -v npm); "$NPM" run "$SCRIPT"\n',
+    ).includes('workflow_dynamic_npm_write_forbidden'),
   );
   assert.deepEqual(
     scanWorkflowText('.github/workflows/options2.yml', 'steps:\n  - run: npm run --silent release:stage -- --tag v1.2.3\n'),
@@ -203,4 +215,12 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     }),
     ['workflow_npm_script_write_forbidden'],
   );
+  for (const command of ['make deploy', 'firebase deploy', 'wrangler deploy']) {
+    assert.deepEqual(
+      scanWorkflowText('.github/workflows/runner.yml', 'steps:\n  - run: npm run release:admit\n', {
+        scripts: { 'release:admit': command },
+      }),
+      ['workflow_npm_script_not_allowlisted'],
+    );
+  }
 });
