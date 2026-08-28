@@ -419,6 +419,46 @@ function hasYamlAnchorOrAlias(text) {
   return false;
 }
 
+function hasUnsupportedPermissionStructure(text) {
+  let blockScalarIndent = null;
+  for (const line of text.split(/\r?\n/)) {
+    const sanitized = stripYamlStringsAndComments(line);
+    const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
+    if (blockScalarIndent !== null) {
+      if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
+      blockScalarIndent = null;
+    }
+    if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
+      blockScalarIndent = indent;
+      continue;
+    }
+    if (/^\s*(?:-\s*)?run\s*:/i.test(sanitized)) continue;
+    const uncommented = stripYamlComment(line);
+    if (
+      /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*(?:permissions|["']permissions["'])\s*:?\s*$/i.test(
+        uncommented,
+      )
+    ) {
+      return true;
+    }
+    if (
+      /^\s*(?:(?:!{1,2}\S+|&\S+)\s+)*"[^"\n]*\\[^"\n]*"\s*:/.test(
+        uncommented,
+      )
+    ) {
+      return true;
+    }
+    if (
+      /[{,]\s*(?:(?:!{1,2}\S+|&\S+)\s+)*(?:permissions|["']permissions["']|["'][^"'\n]*\\[^"'\n]*["'])\s*:/.test(
+        uncommented,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function assertReleaseTag(tag, pattern = DEFAULT_TAG_PATTERN) {
   if (typeof tag !== 'string' || !pattern.test(tag)) fail('release_tag_invalid');
   return tag;
@@ -441,6 +481,9 @@ export function scanWorkflowText(
   if (npmParse.invalidOption) findings.push('workflow_npm_option_forbidden');
   if (hasYamlAnchorOrAlias(text)) {
     findings.push('workflow_yaml_alias_forbidden');
+  }
+  if (hasUnsupportedPermissionStructure(text)) {
+    findings.push('workflow_permission_structure_forbidden');
   }
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {

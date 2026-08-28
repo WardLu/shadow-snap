@@ -155,6 +155,50 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
       ].join('\n'),
     ).includes('workflow_permission_write_forbidden'),
   );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/escaped-permissions-key.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        'jobs:',
+        '  deploy:',
+        '    "permis\\u0073ions":',
+        '      contents: write',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/flow-permissions-key.yml',
+      [
+        'permissions: {contents: read, actions: read}',
+        'jobs:',
+        '  deploy: {permissions: {contents: write}, steps: []}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/inline-permissions.yml',
+      'permissions: {contents: read, actions: read}\njobs:\n  test:\n    steps: []',
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/complex-permissions-key.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        'jobs:',
+        '  deploy:',
+        '    ? permissions',
+        '    : {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/query-parameter.yml',
