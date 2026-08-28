@@ -68,6 +68,40 @@ function hostedProof(config) {
   };
 }
 
+function hostedReceipt(config, admissionRaw) {
+  const admissionDigest = createHash('sha256').update(admissionRaw).digest('hex');
+  const admissionAsset = {
+    id: 1,
+    name: 'release-admission.json',
+    size: Buffer.byteLength(admissionRaw),
+    createdAt: '2026-08-27T23:00:00.000Z',
+    sha256: admissionDigest,
+  };
+  return {
+    schemaVersion: 1,
+    kind: 'release-admission-receipt',
+    repository: config.repository,
+    tag: 'v1.2.3',
+    targetSha: TARGET_SHA,
+    admissionAsset,
+    mode: 'hosted',
+    hostedProof: hostedProof(config),
+    billingProof: null,
+    artifact: {
+      id: 88,
+      name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
+      sizeInBytes: 1,
+      evidenceSha256: admissionDigest,
+      archiveDigest: null,
+      expired: false,
+      workflowRunId: 123,
+      createdAt: '2026-08-27T23:00:00.000Z',
+      expiresAt: '2026-09-26T23:00:00.000Z',
+    },
+    createdAt: '2026-08-28T00:00:00.000Z',
+  };
+}
+
 async function tempRepository() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'shadow-runtime-'));
   await mkdir(path.join(root, 'config'), { recursive: true });
@@ -193,10 +227,13 @@ function gitFactsRunner({ root, config, release } = {}) {
         return {
           stdout: JSON.stringify({
             artifacts: [{
+              id: 88,
               name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
               expired: false,
               size_in_bytes: 1,
               workflow_run: { id: 123 },
+              created_at: '2026-08-27T23:00:00.000Z',
+              expires_at: '2026-09-26T23:00:00.000Z',
             }],
           }),
           exitCode: 0,
@@ -225,6 +262,17 @@ function gitFactsRunner({ root, config, release } = {}) {
             hostedProof: hostedProof(config),
             createdAt: '2026-08-27T23:00:00.000Z',
           }),
+          exitCode: 0,
+          stderrDigest: '0'.repeat(64),
+        };
+      }
+      if (args[1].includes('/releases/assets/2')) {
+        const localReceipt = await readFile(
+          path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'),
+          'utf8',
+        ).catch(() => null);
+        return {
+          stdout: localReceipt ?? JSON.stringify({}),
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
         };
@@ -351,10 +399,16 @@ test('default Initialize preview binds Release, ref, Vercel identity, and Curren
     createdAt: '2026-08-27T23:00:00.000Z',
   };
   const admissionRaw = JSON.stringify(admission);
+  const receiptRaw = JSON.stringify(hostedReceipt(config, admissionRaw));
   await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
   await writeFile(
     path.join(root, '.release-state/v1.2.3/release-admission.json'),
     admissionRaw,
+    { mode: 0o600 },
+  );
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'),
+    receiptRaw,
     { mode: 0o600 },
   );
   const release = {
@@ -369,6 +423,12 @@ test('default Initialize preview binds Release, ref, Vercel identity, and Curren
         size: Buffer.byteLength(admissionRaw),
         created_at: '2026-08-27T23:00:00.000Z',
       },
+      {
+        id: 2,
+        name: 'release-admission-receipt.json',
+        size: Buffer.byteLength(receiptRaw),
+        created_at: '2026-08-28T00:00:00.000Z',
+      },
     ],
   };
   const { runner, commandResults } = gitFactsRunner({ root, config, release });
@@ -378,6 +438,14 @@ test('default Initialize preview binds Release, ref, Vercel identity, and Curren
     repository: config.repository,
     tag: 'v1.2.3',
     asset: release.assets[0],
+    allowIdentityCreate: true,
+  });
+  await verifyReleaseAssetAnchor({
+    runner,
+    repoRoot: root,
+    repository: config.repository,
+    tag: 'v1.2.3',
+    asset: release.assets[1],
     allowIdentityCreate: true,
   });
   const runtime = await createRuntime({
@@ -419,10 +487,16 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
     createdAt: '2026-08-27T23:00:00.000Z',
   };
   const admissionRaw = JSON.stringify(admission);
+  const receiptRaw = JSON.stringify(hostedReceipt(config, admissionRaw));
   await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
   await writeFile(
     path.join(root, '.release-state/v1.2.3/release-admission.json'),
     admissionRaw,
+    { mode: 0o600 },
+  );
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'),
+    receiptRaw,
     { mode: 0o600 },
   );
   const release = {
@@ -430,12 +504,20 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
     draft: false,
     prerelease: false,
     published_at: '2026-08-27T23:30:00.000Z',
-    assets: [{
-      id: 1,
-      name: 'release-admission.json',
-      size: Buffer.byteLength(admissionRaw),
-      created_at: '2026-08-27T23:00:00.000Z',
-    }],
+    assets: [
+      {
+        id: 1,
+        name: 'release-admission.json',
+        size: Buffer.byteLength(admissionRaw),
+        created_at: '2026-08-27T23:00:00.000Z',
+      },
+      {
+        id: 2,
+        name: 'release-admission-receipt.json',
+        size: Buffer.byteLength(receiptRaw),
+        created_at: '2026-08-28T00:00:00.000Z',
+      },
+    ],
   };
   const fixture = gitFactsRunner({ root, config, release });
   await verifyReleaseAssetAnchor({
@@ -444,6 +526,14 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
     repository: config.repository,
     tag: 'v1.2.3',
     asset: release.assets[0],
+    allowIdentityCreate: true,
+  });
+  await verifyReleaseAssetAnchor({
+    runner: fixture.runner,
+    repoRoot: root,
+    repository: config.repository,
+    tag: 'v1.2.3',
+    asset: release.assets[1],
     allowIdentityCreate: true,
   });
   await installControllerBinding({
@@ -465,6 +555,13 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
   assert.equal(passed.status, 'passed');
   assert.equal(passed.state, 'admitted');
   assert.equal(passed.artifactManifestSha256, ARTIFACT_MANIFEST.sha256);
+  assert.equal(
+    fixture.commandResults.some(
+      ([command, endpoint]) =>
+        command === 'gh' && typeof endpoint === 'string' && endpoint.includes('/actions/runs/'),
+    ),
+    false,
+  );
 
   const driftRunner = async (command, args, options) => {
     if (
@@ -499,6 +596,77 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
   assert.equal(failed.status, 'failed');
   assert.equal(failed.state, 'drift_freeze');
   assert.equal(failed.findings[0].reasonCode, 'vercel_project_name_mismatch');
+});
+
+test('anchor-admission persists hosted run and artifact proof in a durable receipt', async () => {
+  const { root, config } = await tempRepository();
+  const admission = {
+    schemaVersion: 1,
+    state: 'admission_ready',
+    repository: config.repository,
+    tag: 'v1.2.3',
+    targetSha: TARGET_SHA,
+    mainSnapshot: MAIN_SHA,
+    configHash: hashReleaseConfig(config),
+    mode: 'hosted',
+    commands: [],
+    workflowPaths: ['.github/workflows/release.yml'],
+    artifactManifest: ARTIFACT_MANIFEST,
+    releaseContract: releaseContract(config),
+    hostedProof: hostedProof(config),
+    createdAt: '2026-08-27T23:00:00.000Z',
+  };
+  const admissionRaw = JSON.stringify(admission);
+  await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission.json'),
+    admissionRaw,
+    { mode: 0o600 },
+  );
+  const release = {
+    tag_name: 'v1.2.3',
+    draft: false,
+    prerelease: false,
+    published_at: '2026-08-27T23:30:00.000Z',
+    assets: [{
+      id: 1,
+      name: 'release-admission.json',
+      size: Buffer.byteLength(admissionRaw),
+      created_at: '2026-08-27T23:00:00.000Z',
+    }],
+  };
+  const base = gitFactsRunner({ root, config, release });
+  const runner = async (command, args, options) => {
+    if (command === 'gh' && args[0] === 'release' && args[1] === 'upload') {
+      const filePath = args[3];
+      const receiptRaw = await readFile(filePath, 'utf8');
+      release.assets.push({
+        id: 2,
+        name: 'release-admission-receipt.json',
+        size: Buffer.byteLength(receiptRaw),
+        created_at: '2026-08-28T00:00:00.000Z',
+      });
+      return { stdout: '', exitCode: 0, stderrDigest: '0'.repeat(64) };
+    }
+    return base.runner(command, args, options);
+  };
+  const runtime = await createRuntime({
+    repoRoot: root,
+    runner,
+    clock: () => new Date('2026-08-28T00:00:00.000Z'),
+  });
+  const result = await runtime.controller['anchor-admission']({
+    tag: 'v1.2.3',
+    assetId: 1,
+  });
+  assert.equal(result.status, 'completed');
+  assert.equal(result.receiptIdentity.id, 2);
+  const receipt = JSON.parse(
+    await readFile(path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'), 'utf8'),
+  );
+  assert.equal(receipt.kind, 'release-admission-receipt');
+  assert.equal(receipt.artifact.id, 88);
+  assert.equal(receipt.artifact.evidenceSha256, result.identity.sha256);
 });
 
 test('Billing fallback accepts only a failed zero-step run with a billing annotation', async () => {
@@ -603,6 +771,46 @@ test('Billing fallback rejects code steps or non-billing failures', async () => 
   await assert.rejects(
     verifyBillingFallback({
       runner: baseRunner,
+      repoRoot: '/repo',
+      repository: 'WardLu/shadow-snap',
+      targetSha: TARGET_SHA,
+    }),
+    /billing_fallback_code_steps_started/,
+  );
+});
+
+test('Billing fallback rejects a billing run when another run for the same SHA executed code', async () => {
+  const runner = async (command, args) => {
+    const endpoint = args[1];
+    if (endpoint.includes('/actions/workflows/release.yml/runs')) {
+      return {
+        stdout: JSON.stringify({
+          workflow_runs: [
+            { id: 45, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+            { id: 44, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+          ],
+        }),
+      };
+    }
+    if (endpoint.includes('/actions/runs/45/jobs')) {
+      return {
+        stdout: JSON.stringify({
+          jobs: [{ id: 55, run_id: 45, head_sha: TARGET_SHA, name: 'admission', conclusion: 'failure', steps: [], check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/66' }],
+        }),
+      };
+    }
+    if (endpoint.includes('/actions/runs/44/jobs')) {
+      return {
+        stdout: JSON.stringify({
+          jobs: [{ id: 54, run_id: 44, head_sha: TARGET_SHA, name: 'admission', conclusion: 'failure', steps: [{ name: 'npm test' }] }],
+        }),
+      };
+    }
+    throw new Error(`unexpected:${endpoint}`);
+  };
+  await assert.rejects(
+    verifyBillingFallback({
+      runner,
       repoRoot: '/repo',
       repository: 'WardLu/shadow-snap',
       targetSha: TARGET_SHA,

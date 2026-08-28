@@ -130,6 +130,18 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     scanWorkflowText('.github/workflows/options.yml', 'steps:\n  - run: npm --prefix . run release:stage -- --tag v1.2.3\n'),
     ['workflow_npm_write_forbidden'],
   );
+  for (const command of [
+    'npm --prefix . --silent run release:stage',
+    'npm --workspace foo --silent run release:stage',
+    'npm -w foo run release:stage',
+    'npm --prefix=. run release:stage',
+    'npm run --if-present --silent release:stage',
+  ]) {
+    assert.deepEqual(
+      scanWorkflowText('.github/workflows/options-combined.yml', `steps:\n  - run: ${command}\n`),
+      ['workflow_npm_write_forbidden'],
+    );
+  }
   assert.deepEqual(
     scanWorkflowText('.github/workflows/options2.yml', 'steps:\n  - run: npm run --silent release:stage -- --tag v1.2.3\n'),
     ['workflow_npm_write_forbidden'],
@@ -157,5 +169,23 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
       scripts: { 'go-live': 'echo deploy later' },
     }),
     ['workflow_npm_script_not_allowlisted'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/indirect.yml', 'steps:\n  - run: npm run test\n', {
+      scripts: { test: 'npm run "$SCRIPT"' },
+    }),
+    ['workflow_npm_script_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/local-file.yml', 'steps:\n  - run: npm run build\n', {
+      scripts: { build: 'node scripts/go.mjs' },
+    }),
+    ['workflow_npm_script_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/entrypoint-chain.yml', 'steps:\n  - run: npm run release:admit\n', {
+      scripts: { 'release:admit': 'node scripts/release/cli.mjs admit && npm run release:stage' },
+    }),
+    ['workflow_npm_script_write_forbidden'],
   );
 });

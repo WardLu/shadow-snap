@@ -43,6 +43,7 @@
 ## 🚀 发布（Release → staged Production → Promote）
 - 所有 Vercel Git 自动部署已关闭，推送 `main`、PR 分支或 `production` 都不会自动部署。
 - `v*` tag 只运行只读 Admission；发布 GitHub Release、推进 `production`、创建 staged Production 和 Promote 分别授权。
+- 发布 Release 后必须锚定原始 Admission asset，并生成长期保存的 `release-admission-receipt.json`，Audit 不依赖短期 Actions artifact。
 - 本地 Release Controller 只接受已发布 Release 的准确 commit，先使用 `--prod --skip-domain` 创建 staged deployment，验收后才可 Promote。
 - `.githooks/pre-push` 只保护指定本地 clone，可被其他 clone、GitHub UI/API 或 `--no-verify` 绕过，不能当作 GitHub protected branch。
 

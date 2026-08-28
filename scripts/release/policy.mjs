@@ -51,6 +51,133 @@ const SAFE_NPM_SCRIPTS = new Set([
   'test:release-watcher',
 ]);
 
+// A workflow may only reach a local executable through an explicitly reviewed
+// read-only entrypoint.  Merely allowlisting the npm script name is not enough:
+// a package.json change such as `test: "npm run \"$SCRIPT\""` or
+// `build: "node scripts/go.mjs"` would otherwise move the production write
+// behind an unreviewed file.
+const EXACT_READ_ONLY_SCRIPT_COMMANDS = new Map([
+  ['release:admit', /^node\s+scripts\/release\/cli\.mjs\s+admit\s*$/],
+]);
+
+const NPM_OPTIONS_WITH_VALUE = new Set([
+  '--prefix',
+  '--workspace',
+  '--workspaces',
+  '--userconfig',
+  '--location',
+  '-w',
+  '-C',
+]);
+function tokenizeShell(text) {
+  const tokens = [];
+  let value = '';
+  let quote = null;
+  let escaped = false;
+  let started = false;
+  const push = () => {
+    if (!started) return;
+    tokens.push({ value, dynamic: /\$|`/.test(value) });
+    value = '';
+    started = false;
+  };
+
+  for (const character of text) {
+    if (escaped) {
+      value += character;
+      escaped = false;
+      started = true;
+      continue;
+    }
+    if (quote && character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else {
+        value += character;
+      }
+      started = true;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      started = true;
+      continue;
+    }
+    if (character === "'" || character === '"' || character === '`') {
+      quote = character;
+      started = true;
+      continue;
+    }
+    if (/\s/.test(character)) {
+      push();
+      continue;
+    }
+    value += character;
+    started = true;
+  }
+  if (escaped) value += '\\';
+  push();
+  return tokens;
+}
+
+function isNpmOption(token) {
+  return token?.startsWith('--') || /^-[A-Za-z]/.test(token ?? '');
+}
+
+function consumeNpmOptions(tokens, start) {
+  let index = start;
+  while (index < tokens.length) {
+    const token = tokens[index]?.value;
+    if (!isNpmOption(token) || token === '--') break;
+    const equals = token.indexOf('=');
+    if (equals !== -1) {
+      index += 1;
+      continue;
+    }
+    if (NPM_OPTIONS_WITH_VALUE.has(token)) {
+      index += 2;
+    } else if ((token.startsWith('-w') || token.startsWith('-C')) && token.length > 2) {
+      // npm accepts attached short option values such as `-wfoo` and `-C.`.
+      index += 1;
+    } else {
+      index += 1;
+    }
+  }
+  return index;
+}
+
+function parseNpmInvocations(text) {
+  const tokens = tokenizeShell(text);
+  const invocations = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index].value !== 'npm') continue;
+    let cursor = consumeNpmOptions(tokens, index + 1);
+    if (tokens[cursor]?.value === '--') cursor += 1;
+    const command = tokens[cursor]?.value;
+    if (!['run', 'run-script', 'exec', 'x'].includes(command)) continue;
+    cursor += 1;
+    cursor = consumeNpmOptions(tokens, cursor);
+    const target = tokens[cursor] ?? null;
+    invocations.push({
+      kind: command === 'run' || command === 'run-script' ? 'run' : 'exec',
+      target,
+    });
+  }
+  return invocations;
+}
+
+function hasDynamicNpmInvocation(invocations) {
+  return invocations.some(({ target }) => target?.dynamic);
+}
+
+function hasReadOnlyScriptEntrypoint(name, command) {
+  return EXACT_READ_ONLY_SCRIPT_COMMANDS.get(name)?.test(command.trim()) ?? false;
+}
+
 function fail(reasonCode) {
   throw new Error(reasonCode);
 }
@@ -68,11 +195,7 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
     ({ reasonCode }) => reasonCode,
   );
   const normalized = text.replace(/\\\r?\n/g, ' ').replace(/\s+/g, ' ');
-  const normalizedNpm = normalized
-    .replace(/(["'`])npm\1/gi, 'npm')
-    .replace(/\bnpm\s+(?:(?:--prefix|--workspace|--prefixes)(?:=|\s+)\S+|--(?:silent|quiet|yes|global|location=\S+)|-[sq])\s+/gi, 'npm ')
-    .replace(/\bnpm\s+run-script\b/gi, 'npm run')
-    .replace(/\bnpm\s+run\s+(?:(?:--silent|--quiet|--if-present|-[sq])\s+)+/gi, 'npm run ');
+  const npmInvocations = parseNpmInvocations(normalized);
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
@@ -95,17 +218,21 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   if (unsafeLocalRunner.test(text)) {
     findings.push('workflow_dynamic_local_write_forbidden');
   }
-  if (
-    /\bnpm\s+(?:run|exec|x)\b/i.test(normalizedNpm) &&
-    /\bnpm\s+(?:run|exec|x)\s+(?:[^\s]+:)?(?:release:(?!admit\b)|ship\b|deploy\b|publish\b|promote\b|rollback\b)/i.test(normalizedNpm)
-  ) {
-    findings.push('workflow_npm_write_forbidden');
-  }
-  if (/\bnpm\s+run\s+(?:["'`]?(?:\$|\$\{|\$\())/i.test(normalizedNpm)) {
+  if (hasDynamicNpmInvocation(npmInvocations)) {
     findings.push('workflow_dynamic_npm_write_forbidden');
   }
-  if (/\bnpm\s+(?:exec|x)\s+vercel\b/i.test(normalizedNpm)) {
-    findings.push('workflow_npm_write_forbidden');
+  for (const invocation of npmInvocations) {
+    if (invocation.kind === 'exec') {
+      // npm exec can install or execute an arbitrary package; a production
+      // workflow must not use it as an indirect command launcher.
+      findings.push('workflow_npm_write_forbidden');
+      continue;
+    }
+    const name = invocation.target?.value;
+    if (!name || invocation.target?.dynamic) continue;
+    if (/(?:^|:)(?:release:(?!admit$)[A-Za-z0-9._-]+|ship|deploy|publish|promote|rollback)$/.test(name)) {
+      findings.push('workflow_npm_write_forbidden');
+    }
   }
   if (/\brun:\s*["'`]?\$[A-Za-z_{]/i.test(text) && /\b(?:run|exec)\b/i.test(normalized)) {
     findings.push('workflow_dynamic_npm_write_forbidden');
@@ -117,14 +244,31 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
       visited.add(name);
       const command = scripts[name];
       if (typeof command !== 'string') return false;
-      if (/(?:vercel\b|--prod\b|production|promote|rollback|git\s+push|gh\s+release|api\.github\.com|api\.vercel\.com)/i.test(command)) return true;
-      const nested = [...command.matchAll(/\bnpm\s+run(?:-script)?\s+(?:--\S+\s+)*([A-Za-z0-9:_-]+)/gi)];
-      return nested.some((match) => scriptWrites(match[1], depth + 1));
+      if (
+        /(?:vercel\b|--prod\b|production|promote|rollback|git\s+push|gh\s+release|api\.github\.com|api\.vercel\.com)/i.test(command) ||
+        DYNAMIC_HTTP_CLIENT.test(command) ||
+        /\bgh\s+api\b/i.test(command)
+      ) return true;
+      if (
+        /\$[A-Za-z_{(]/.test(command) ||
+        /\b(?:node|npx|python\d*|bash|sh|zsh|fish|bun|deno|tsx|ts-node)\b/i.test(command) ||
+        /(?:^|\s)(?:\.\/|\.\.\/|scripts\/|node_modules\/\.bin\/)/i.test(command)
+      ) {
+        if (!hasReadOnlyScriptEntrypoint(name, command)) return true;
+      }
+      const nested = parseNpmInvocations(command);
+      if (hasDynamicNpmInvocation(nested)) return true;
+      if (nested.some(({ kind }) => kind === 'exec')) return true;
+      return nested
+        .filter(({ kind }) => kind === 'run')
+        .some(({ target }) => !target?.value || scriptWrites(target.value, depth + 1));
     };
-    for (const match of normalizedNpm.matchAll(/\bnpm\s+run(?:-script)?\s+(?:--\S+\s+)*([A-Za-z0-9:_-]+)/gi)) {
-      if (scriptWrites(match[1])) {
+    for (const invocation of npmInvocations.filter(({ kind }) => kind === 'run')) {
+      const name = invocation.target?.value;
+      if (!name || invocation.target?.dynamic) continue;
+      if (scriptWrites(name)) {
         findings.push('workflow_npm_script_write_forbidden');
-      } else if (!SAFE_NPM_SCRIPTS.has(match[1])) {
+      } else if (!SAFE_NPM_SCRIPTS.has(name)) {
         findings.push('workflow_npm_script_not_allowlisted');
       }
     }

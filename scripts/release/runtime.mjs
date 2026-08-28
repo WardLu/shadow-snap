@@ -51,6 +51,7 @@ import {
 } from './vercel.mjs';
 
 const ZERO_SHA = '0'.repeat(40);
+const ADMISSION_RECEIPT_ASSET = 'release-admission-receipt.json';
 
 function fail(reasonCode) {
   throw new Error(reasonCode);
@@ -399,6 +400,7 @@ async function verifyHostedRunProof({
   if (requireCompleted && (run.status !== 'completed' || run.conclusion !== 'success')) {
     fail('hosted_admission_run_not_successful');
   }
+  let artifact = null;
   if (requireCompleted) {
     if (!/^[0-9a-f]{64}$/.test(admissionDigest ?? '')) {
       fail('hosted_admission_artifact_digest_missing');
@@ -412,7 +414,7 @@ async function verifyHostedRunProof({
     if (!Array.isArray(artifactsPayload.artifacts)) {
       fail('hosted_admission_artifacts_shape_invalid');
     }
-    const artifact = artifactsPayload.artifacts.find(
+    artifact = artifactsPayload.artifacts.find(
       (candidate) =>
         candidate.name === `shadow-snap-release-admission-${proof.tag}-${admissionDigest}` &&
         candidate.expired === false &&
@@ -420,11 +422,16 @@ async function verifyHostedRunProof({
         candidate.workflow_run?.id === proof.runId,
     );
     if (!artifact) fail('hosted_admission_artifact_binding_mismatch');
+    if (!Number.isInteger(artifact.id) || typeof artifact.name !== 'string') {
+      fail('hosted_admission_artifact_identity_invalid');
+    }
   }
   return {
     repository: config.repository,
+    tag: proof.tag,
     runId: proof.runId,
     runAttempt: proof.runAttempt,
+    workflow: proof.workflow,
     event: proof.event,
     ref: proof.ref,
     refName: proof.refName,
@@ -432,6 +439,19 @@ async function verifyHostedRunProof({
     workflowRef: proof.workflowRef,
     status: run.status,
     conclusion: run.conclusion ?? null,
+    artifact: artifact
+      ? {
+          id: artifact.id,
+          name: artifact.name,
+          sizeInBytes: Number(artifact.size_in_bytes),
+          evidenceSha256: admissionDigest,
+          archiveDigest: typeof artifact.digest === 'string' ? artifact.digest : null,
+          expired: artifact.expired,
+          workflowRunId: artifact.workflow_run?.id ?? null,
+          createdAt: artifact.created_at ?? null,
+          expiresAt: artifact.expires_at ?? null,
+        }
+      : null,
   };
 }
 
@@ -459,7 +479,7 @@ export async function verifyBillingFallback({
   const runs = await githubApiJson({
     runner,
     repoRoot,
-    endpoint: `/repos/${repository}/actions/workflows/release.yml/runs?head_sha=${targetSha}&event=push&per_page=20`,
+    endpoint: `/repos/${repository}/actions/workflows/release.yml/runs?head_sha=${targetSha}&event=push&per_page=100`,
     reasonCode: 'billing_fallback_runs_json_invalid',
   });
   if (!Array.isArray(runs.workflow_runs)) fail('billing_fallback_runs_shape_invalid');
@@ -474,78 +494,220 @@ export async function verifyBillingFallback({
   if (matchingRuns.some((run) => run.status === 'completed' && run.conclusion === 'success')) {
     fail('billing_fallback_not_needed');
   }
-  const failedRun = matchingRuns.find(
+  const failedRuns = matchingRuns.filter(
     (run) => run.status === 'completed' && run.conclusion === 'failure',
   );
-  if (!Number.isInteger(failedRun?.id)) fail('billing_fallback_failed_run_missing');
-  if (!Number.isInteger(failedRun.run_attempt)) fail('billing_fallback_run_attempt_missing');
+  if (failedRuns.length === 0) fail('billing_fallback_failed_run_missing');
 
-  const jobs = await githubApiJson({
-    runner,
-    repoRoot,
-    endpoint: `/repos/${repository}/actions/runs/${failedRun.id}/jobs?filter=all&per_page=100`,
-    reasonCode: 'billing_fallback_jobs_json_invalid',
-  });
-  if (!Array.isArray(jobs.jobs)) fail('billing_fallback_jobs_shape_invalid');
-  const failedJob = jobs.jobs.find(
-    (job) =>
-      job.name === 'admission' &&
-      job.conclusion === 'failure' &&
-      job.run_id === failedRun.id &&
-      job.head_sha === targetSha,
-  );
-  if (!Number.isInteger(failedJob?.id)) fail('billing_fallback_failed_job_missing');
-  if (expectedProof && failedJob.id !== expectedProof.jobId) fail('billing_fallback_job_binding_mismatch');
-  const steps = Array.isArray(failedJob.steps) ? failedJob.steps : [];
-  if (steps.length !== 0) fail('billing_fallback_code_steps_started');
+  const failedRunJobs = [];
+  for (const failedRun of failedRuns) {
+    if (!Number.isInteger(failedRun.id)) fail('billing_fallback_failed_run_missing');
+    if (!Number.isInteger(failedRun.run_attempt)) fail('billing_fallback_run_attempt_missing');
+    const jobs = await githubApiJson({
+      runner,
+      repoRoot,
+      endpoint: `/repos/${repository}/actions/runs/${failedRun.id}/jobs?filter=all&per_page=100`,
+      reasonCode: 'billing_fallback_jobs_json_invalid',
+    });
+    if (!Array.isArray(jobs.jobs)) fail('billing_fallback_jobs_shape_invalid');
+    const runJobs = jobs.jobs.filter(
+      (job) => job.run_id === failedRun.id && job.head_sha === targetSha,
+    );
+    if (
+      runJobs.some(
+        (job) =>
+          job.conclusion === 'failure' &&
+          Array.isArray(job.steps) &&
+          job.steps.length > 0,
+      )
+    ) {
+      // A different run for the same SHA may have run real code and failed.
+      // That failure must never be hidden by a separate Billing-blocked run.
+      fail('billing_fallback_code_steps_started');
+    }
+    failedRunJobs.push({ failedRun, runJobs });
+  }
 
-  const checkRuns = await githubApiJson({
-    runner,
-    repoRoot,
-    endpoint: `/repos/${repository}/commits/${targetSha}/check-runs`,
-    reasonCode: 'billing_fallback_check_runs_json_invalid',
-  });
-  if (!Array.isArray(checkRuns.check_runs)) {
-    fail('billing_fallback_check_runs_shape_invalid');
+  let billingCandidate = null;
+  for (const { failedRun, runJobs } of failedRunJobs) {
+    const failedJob = runJobs.find(
+      (job) => job.name === 'admission' && job.conclusion === 'failure',
+    );
+    if (!Number.isInteger(failedJob?.id)) continue;
+    if (expectedProof && failedJob.id !== expectedProof.jobId) {
+      continue;
+    }
+    const steps = Array.isArray(failedJob.steps) ? failedJob.steps : [];
+    if (steps.length !== 0) fail('billing_fallback_code_steps_started');
+
+    const checkRunId = Number(
+      /\/check-runs\/(\d+)$/.exec(failedJob.check_run_url ?? '')?.[1],
+    );
+    if (!Number.isInteger(checkRunId)) continue;
+    if (expectedProof && checkRunId !== expectedProof.checkRunId) continue;
+
+    const checkRuns = await githubApiJson({
+      runner,
+      repoRoot,
+      endpoint: `/repos/${repository}/commits/${targetSha}/check-runs`,
+      reasonCode: 'billing_fallback_check_runs_json_invalid',
+    });
+    if (!Array.isArray(checkRuns.check_runs)) {
+      fail('billing_fallback_check_runs_shape_invalid');
+    }
+    const checkRun = checkRuns.check_runs.find(
+      (check) =>
+        check.id === checkRunId &&
+        check.name === 'admission' &&
+        check.conclusion === 'failure' &&
+        Number(check.output?.annotations_count) > 0,
+    );
+    if (!Number.isInteger(checkRun?.id)) continue;
+    const annotations = await githubApiJson({
+      runner,
+      repoRoot,
+      endpoint: `/repos/${repository}/check-runs/${checkRun.id}/annotations`,
+      reasonCode: 'billing_fallback_annotations_json_invalid',
+    });
+    if (!Array.isArray(annotations)) fail('billing_fallback_annotations_shape_invalid');
+    const billingAnnotation = annotations.find(
+      (annotation) =>
+        typeof annotation.message === 'string' &&
+        /billing|spending limit|payment failed|付款|计费/i.test(annotation.message),
+    );
+    if (!billingAnnotation) continue;
+    const annotationSha256 = sha256(billingAnnotation.message);
+    if (expectedProof && annotationSha256 !== expectedProof.annotationSha256) {
+      fail('billing_fallback_annotation_binding_mismatch');
+    }
+    billingCandidate = {
+      workflowRunId: failedRun.id,
+      workflowRunAttempt: failedRun.run_attempt,
+      jobId: failedJob.id,
+      checkRunId: checkRun.id,
+      stepCount: 0,
+      annotationSha256,
+    };
+    break;
   }
-  const checkRunId = Number(
-    /\/check-runs\/(\d+)$/.exec(failedJob.check_run_url ?? '')?.[1],
-  );
-  if (!Number.isInteger(checkRunId)) fail('billing_fallback_job_check_run_missing');
-  const checkRun = checkRuns.check_runs.find(
-    (check) =>
-      check.id === checkRunId &&
-      (!expectedProof || check.id === expectedProof.checkRunId) &&
-      check.name === 'admission' &&
-      check.conclusion === 'failure' &&
-      Number(check.output?.annotations_count) > 0,
-  );
-  if (!Number.isInteger(checkRun?.id)) fail('billing_fallback_check_run_missing');
-  const annotations = await githubApiJson({
-    runner,
-    repoRoot,
-    endpoint: `/repos/${repository}/check-runs/${checkRun.id}/annotations`,
-    reasonCode: 'billing_fallback_annotations_json_invalid',
-  });
-  if (!Array.isArray(annotations)) fail('billing_fallback_annotations_shape_invalid');
-  const billingAnnotation = annotations.find(
-    (annotation) =>
-      typeof annotation.message === 'string' &&
-      /billing|spending limit|payment failed|付款|计费/i.test(annotation.message),
-  );
-  if (!billingAnnotation) fail('billing_fallback_annotation_missing');
-  const annotationSha256 = sha256(billingAnnotation.message);
-  if (expectedProof && annotationSha256 !== expectedProof.annotationSha256) {
-    fail('billing_fallback_annotation_binding_mismatch');
+
+  if (!billingCandidate) {
+    if (expectedProof) fail('billing_fallback_proof_binding_missing');
+    fail('billing_fallback_annotation_missing');
   }
-  return {
-    workflowRunId: failedRun.id,
-    workflowRunAttempt: failedRun.run_attempt,
-    jobId: failedJob.id,
-    checkRunId: checkRun.id,
-    stepCount: 0,
-    annotationSha256,
-  };
+  return billingCandidate;
+}
+
+function assertHostedProofShape(proof, { config, tag, targetSha, completed = false }) {
+  if (
+    !proof ||
+    proof.repository !== config.repository ||
+    proof.tag !== tag ||
+    !Number.isInteger(proof.runId) ||
+    !Number.isInteger(proof.runAttempt) ||
+    typeof proof.workflow !== 'string' ||
+    proof.workflow.length === 0 ||
+    !['push', 'workflow_dispatch'].includes(proof.event) ||
+    proof.ref !== `refs/tags/${tag}` ||
+    proof.refName !== tag ||
+    proof.sha !== targetSha ||
+    proof.workflowRef !==
+      `${config.repository}/.github/workflows/release.yml@refs/tags/${tag}`
+  ) {
+    fail('hosted_admission_receipt_invalid');
+  }
+  if (completed && (proof.status !== 'completed' || proof.conclusion !== 'success')) {
+    fail('hosted_admission_receipt_run_invalid');
+  }
+  return proof;
+}
+
+function assertBillingProofShape(proof) {
+  if (
+    !proof ||
+    !Number.isInteger(proof.workflowRunId) ||
+    !Number.isInteger(proof.workflowRunAttempt) ||
+    !Number.isInteger(proof.jobId) ||
+    !Number.isInteger(proof.checkRunId) ||
+    proof.stepCount !== 0 ||
+    !/^[0-9a-f]{64}$/.test(proof.annotationSha256 ?? '')
+  ) {
+    fail('release_billing_proof_invalid');
+  }
+  return proof;
+}
+
+function assertAdmissionReceipt({
+  receipt,
+  config,
+  tag,
+  admission,
+  admissionIdentity,
+}) {
+  if (
+    receipt?.schemaVersion !== 1 ||
+    receipt.kind !== 'release-admission-receipt' ||
+    receipt.repository !== config.repository ||
+    receipt.tag !== tag ||
+    receipt.targetSha !== admission.targetSha ||
+    typeof receipt.createdAt !== 'string' ||
+    !Number.isFinite(Date.parse(receipt.createdAt)) ||
+    canonicalJson(receipt.admissionAsset) !== canonicalJson(admissionIdentity) ||
+    receipt.mode !== admission.mode
+  ) {
+    fail('release_admission_receipt_invalid');
+  }
+  if (receipt.mode === 'hosted') {
+    const proof = assertHostedProofShape(receipt.hostedProof, {
+      config,
+      tag,
+      targetSha: admission.targetSha,
+      completed: true,
+    });
+    const admissionProof = admission.hostedProof;
+    if (
+      !admissionProof ||
+      admissionProof.repository !== proof.repository ||
+      admissionProof.tag !== proof.tag ||
+      admissionProof.runId !== proof.runId ||
+      admissionProof.runAttempt !== proof.runAttempt ||
+      admissionProof.workflowRef !== proof.workflowRef ||
+      admissionProof.event !== proof.event ||
+      admissionProof.ref !== proof.ref ||
+      admissionProof.refName !== proof.refName ||
+      admissionProof.sha !== proof.sha
+    ) {
+      fail('hosted_admission_receipt_binding_mismatch');
+    }
+    const artifact = receipt.artifact;
+    if (
+      !artifact ||
+      !Number.isInteger(artifact.id) ||
+      artifact.name !== `shadow-snap-release-admission-${tag}-${admissionIdentity.sha256}` ||
+      !Number.isInteger(artifact.sizeInBytes) ||
+      artifact.sizeInBytes <= 0 ||
+      artifact.evidenceSha256 !== admissionIdentity.sha256 ||
+      artifact.workflowRunId !== proof.runId ||
+      artifact.expired !== false ||
+      receipt.billingProof !== null ||
+      (artifact.archiveDigest !== null &&
+        (typeof artifact.archiveDigest !== 'string' || artifact.archiveDigest.length === 0))
+    ) {
+      fail('hosted_admission_receipt_artifact_invalid');
+    }
+    return receipt;
+  }
+  if (receipt.mode === 'billing-fallback') {
+    if (receipt.hostedProof !== null || receipt.artifact !== null) {
+      fail('billing_fallback_receipt_shape_invalid');
+    }
+    assertBillingProofShape(receipt.billingProof);
+    if (canonicalJson(receipt.billingProof) !== canonicalJson(admission.billingProof)) {
+      fail('billing_fallback_receipt_binding_mismatch');
+    }
+    return receipt;
+  }
+  fail('release_admission_receipt_mode_invalid');
 }
 
 const CHANNEL_BLOCKING_STATES = new Set([
@@ -755,39 +917,24 @@ async function readReleaseSnapshot({
   if (!['hosted', 'billing-fallback'].includes(admission.mode)) {
     fail('release_admission_mode_invalid');
   }
-  if (
-    admission.mode === 'billing-fallback' &&
-    (!admission.billingProof ||
-      !Number.isInteger(admission.billingProof.workflowRunId) ||
-      !Number.isInteger(admission.billingProof.workflowRunAttempt) ||
-      !Number.isInteger(admission.billingProof.jobId) ||
-      !Number.isInteger(admission.billingProof.checkRunId) ||
-      !Number.isInteger(admission.billingProof.stepCount) ||
-      admission.billingProof.stepCount !== 0 ||
-      !/^[0-9a-f]{64}$/.test(admission.billingProof.annotationSha256 ?? ''))
-  ) {
-    fail('release_billing_proof_invalid');
-  }
-  if (admission.mode === 'billing-fallback') {
-    await verifyBillingFallback({
-      runner,
-      repoRoot,
-      repository,
-      targetSha: admission.targetSha,
-      expectedProof: admission.billingProof,
-    });
-  }
-  if (admission.mode === 'hosted') {
-    await verifyHostedRunProof({
-      runner,
-      repoRoot,
-      config,
-      targetSha: admission.targetSha,
-      proof: admission.hostedProof,
-      requireCompleted: true,
-      admissionDigest: admissionDocument.digest,
-    });
-  }
+  const receiptAssets = release.assets.filter(
+    (asset) => asset.name === ADMISSION_RECEIPT_ASSET,
+  );
+  if (receiptAssets.length !== 1) fail('release_admission_receipt_missing');
+  const receiptDocument = await verifyReleaseAssetAnchor({
+    runner,
+    repoRoot,
+    repository,
+    tag,
+    asset: receiptAssets[0],
+  });
+  const admissionReceipt = assertAdmissionReceipt({
+    receipt: receiptDocument.value,
+    config,
+    tag,
+    admission,
+    admissionIdentity: admissionDocument.identity,
+  });
   const contract = admission.releaseContract;
   if (
     !contract ||
@@ -886,6 +1033,7 @@ async function readReleaseSnapshot({
     repository,
     release,
     admission,
+    admissionReceipt,
     evidence,
     decodedAssets,
     state: derived.state,
@@ -1011,10 +1159,18 @@ async function localAudit({ runner, repoRoot, config }) {
   }
   const workflowDirectory = path.join(repoRoot, '.github', 'workflows');
   const workflowNames = await readdir(workflowDirectory).catch(() => []);
+  let packageScripts = null;
+  try {
+    packageScripts = JSON.parse(
+      await readFile(path.join(repoRoot, 'package.json'), 'utf8'),
+    ).scripts ?? null;
+  } catch {
+    packageScripts = null;
+  }
   for (const name of workflowNames.filter((entry) => /\.ya?ml$/.test(entry)).sort()) {
     const workflowPath = `.github/workflows/${name}`;
     const text = await readFile(path.join(repoRoot, workflowPath), 'utf8');
-    for (const reasonCode of scanWorkflowText(workflowPath, text)) {
+    for (const reasonCode of scanWorkflowText(workflowPath, text, { scripts: packageScripts })) {
       findings.push({ reasonCode, path: workflowPath });
     }
   }
@@ -2257,11 +2413,107 @@ export async function createRuntime({
         asset: matches[0],
         allowIdentityCreate: true,
       });
+      if (!['hosted', 'billing-fallback'].includes(anchored.value?.mode)) {
+        fail('release_admission_mode_invalid');
+      }
+      const receiptAssets = release.assets.filter(
+        (asset) => asset.name === ADMISSION_RECEIPT_ASSET,
+      );
+      if (receiptAssets.length > 1) fail('release_admission_receipt_ambiguous');
+      let receiptIdentity;
+      if (receiptAssets.length === 1) {
+        const existingReceipt = await verifyReleaseAssetAnchor({
+          runner,
+          repoRoot,
+          repository,
+          tag: request.tag,
+          asset: receiptAssets[0],
+        });
+        assertAdmissionReceipt({
+          receipt: existingReceipt.value,
+          config,
+          tag: request.tag,
+          admission: anchored.value,
+          admissionIdentity: anchored.identity,
+        });
+        receiptIdentity = existingReceipt.identity;
+      } else {
+        let receipt;
+        if (anchored.value.mode === 'hosted') {
+          const verified = await verifyHostedRunProof({
+            runner,
+            repoRoot,
+            config,
+            targetSha: anchored.value.targetSha,
+            proof: anchored.value.hostedProof,
+            requireCompleted: true,
+            admissionDigest: anchored.digest,
+          });
+          const { artifact, ...proof } = verified;
+          receipt = {
+            schemaVersion: 1,
+            kind: 'release-admission-receipt',
+            repository,
+            tag: request.tag,
+            targetSha: anchored.value.targetSha,
+            admissionAsset: anchored.identity,
+            mode: 'hosted',
+            hostedProof: proof,
+            billingProof: null,
+            artifact,
+            createdAt: clock().toISOString(),
+          };
+        } else {
+          const billingProof = assertBillingProofShape(
+            await verifyBillingFallback({
+              runner,
+              repoRoot,
+              repository,
+              targetSha: anchored.value.targetSha,
+              expectedProof: anchored.value.billingProof,
+            }),
+          );
+          receipt = {
+            schemaVersion: 1,
+            kind: 'release-admission-receipt',
+            repository,
+            tag: request.tag,
+            targetSha: anchored.value.targetSha,
+            admissionAsset: anchored.identity,
+            mode: 'billing-fallback',
+            hostedProof: null,
+            billingProof,
+            artifact: null,
+            createdAt: clock().toISOString(),
+          };
+        }
+        const localReceipt = await writeLocalEvidence({
+          repoRoot,
+          tag: request.tag,
+          fileName: ADMISSION_RECEIPT_ASSET,
+          value: receipt,
+        });
+        receiptIdentity = await uploadAndAnchorReleaseAsset({
+          runner,
+          repoRoot,
+          config,
+          tag: request.tag,
+          filePath: localReceipt.filePath,
+        });
+        assertAdmissionReceipt({
+          receipt,
+          config,
+          tag: request.tag,
+          admission: anchored.value,
+          admissionIdentity: anchored.identity,
+        });
+      }
       return {
         status: 'completed',
         operation: 'anchor-admission',
         tag: request.tag,
         identity: anchored.identity,
+        receiptIdentity,
       };
     },
   };
