@@ -1,0 +1,26 @@
+{
+  "name": "shadow-snap",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "release:admit": "node scripts/release/cli.mjs admit",
+    "release:initialize": "node scripts/release/cli.mjs initialize",
+    "release:stage": "node scripts/release/cli.mjs stage",
+    "release:promote": "node scripts/release/cli.mjs promote",
+    "release:rollback": "node scripts/release/cli.mjs rollback",
+    "release:resume": "node scripts/release/cli.mjs resume",
+    "release:recover": "node scripts/release/cli.mjs recover",
+    "release:renew": "node scripts/release/cli.mjs renew",
+    "release:audit": "node scripts/release/cli.mjs audit",
+    "release:unlock": "node scripts/release/cli.mjs unlock",
+    "release:fail": "node scripts/release/cli.mjs fail",
+    "release:anchor-admission": "node scripts/release/cli.mjs anchor-admission",
+    "release:install": "node scripts/install-release-controller.mjs",
+    "test:release-controller": "node --test tests/release/contracts/*.test.mjs tests/release/repository-config.test.mjs",
+    "validate:static": "node scripts/validate-static-site.mjs"
+  }
+}
