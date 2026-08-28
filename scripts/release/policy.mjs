@@ -345,11 +345,12 @@ function yamlQuoteStartsAtNode(line, index, flowDepth = 0) {
   if (previous === '{' || previous === '[') return flowDepth > 0;
   if (previous === '?') {
     const questionIndex = prefix.lastIndexOf('?');
+    const beforeQuestion = prefix.slice(0, questionIndex).match(/\S(?=\s*$)/)?.[0];
     const characterBeforeQuestion = prefix[questionIndex - 1];
     return (
-      !characterBeforeQuestion ||
-      /\s/.test(characterBeforeQuestion) ||
-      (flowDepth > 0 && '[{,'.includes(characterBeforeQuestion))
+      !beforeQuestion ||
+      (beforeQuestion === ':' && /\s/.test(characterBeforeQuestion)) ||
+      (flowDepth > 0 && '[{,'.includes(beforeQuestion))
     );
   }
   if (previous === ',') {
@@ -363,7 +364,8 @@ function yamlQuoteStartsAtNode(line, index, flowDepth = 0) {
   if (!/^(?:!{1,2}(?:\S+)?|&\S+)$/.test(token ?? '')) return false;
   const tokenStart = prefix.lastIndexOf(token);
   const beforeToken = prefix.slice(0, tokenStart).match(/\S(?=\s*$)/)?.[0];
-  if (!beforeToken || ':,[{?'.includes(beforeToken)) return true;
+  if (!beforeToken || ':,[{'.includes(beforeToken)) return true;
+  if (beforeToken === '?') return yamlQuoteStartsAtNode(line, tokenStart, flowDepth);
   if (beforeToken === '-') {
     const dashIndex = prefix.slice(0, tokenStart).lastIndexOf('-');
     return /^\s*$/.test(prefix.slice(0, dashIndex));
