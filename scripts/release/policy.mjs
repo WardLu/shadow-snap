@@ -229,6 +229,10 @@ function parseNpmInvocations(text) {
         ? tokens.length
         : commandArgsStart + commandArgsOffset;
     const commandArgs = tokens.slice(commandArgsStart, commandArgsEnd);
+    const invalidIgnoreScriptsArgument = commandArgs.some(
+      ({ value }) =>
+        value.startsWith('--ignore-scripts=') && value !== '--ignore-scripts=true',
+    );
     invocations.push({
       kind:
         command === 'run' || command === 'run-script'
@@ -246,7 +250,8 @@ function parseNpmInvocations(text) {
         ),
       invalidIgnoreScripts:
         globalOptions.invalidIgnoreScripts ||
-        commandOptions.invalidIgnoreScripts,
+        commandOptions.invalidIgnoreScripts ||
+        invalidIgnoreScriptsArgument,
     });
   }
   return { invocations, invalidOption, dynamicLauncher };
@@ -289,7 +294,10 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   const writablePermission = [...normalized.matchAll(permissionValuePattern)].some(
     (match) => !['read', 'none'].includes(match[1].toLowerCase()),
   );
-  if (/\bpermissions:\s*(?:write-all|write)\b/i.test(normalized) || writablePermission) {
+  if (
+    /\bpermissions:\s*["']?(?:write-all|write)["']?\b/i.test(normalized) ||
+    writablePermission
+  ) {
     findings.push('workflow_permission_write_forbidden');
   }
   if (

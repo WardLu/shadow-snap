@@ -18,3 +18,21 @@ test('command runner can remove release credentials from admission children', as
   assert.equal(childEnvironment.GH_TOKEN, undefined);
   assert.equal(childEnvironment.KEEP_FOR_TEST, 'yes');
 });
+
+test('command runner supports an isolated environment allowlist', async () => {
+  let childEnvironment;
+  const runner = createCommandRunner({
+    spawnSyncImpl: (_command, _args, options) => {
+      childEnvironment = options.env;
+      return { status: 0, stdout: 'ok\n', stderr: '' };
+    },
+  });
+  await runner('node', ['--version'], {
+    inheritEnv: false,
+    env: { PATH: '/safe/bin', CI: 'true' },
+  });
+  assert.deepEqual(childEnvironment, {
+    PATH: '/safe/bin',
+    CI: 'true',
+  });
+});

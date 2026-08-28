@@ -34,6 +34,7 @@ export function createCommandRunner({ spawnSyncImpl = spawnSync } = {}) {
     {
       cwd = process.cwd(),
       env = {},
+      inheritEnv = true,
       unsetEnv = [],
       input,
       allowExitCodes = [0],
@@ -50,8 +51,9 @@ export function createCommandRunner({ spawnSyncImpl = spawnSync } = {}) {
     ) {
       throw new TypeError('unset_env_invalid');
     }
+    if (typeof inheritEnv !== 'boolean') throw new TypeError('inherit_env_invalid');
 
-    const childEnv = { ...process.env, ...env };
+    const childEnv = { ...(inheritEnv ? process.env : {}), ...env };
     for (const name of unsetEnv) delete childEnv[name];
 
     const result = spawnSyncImpl(command, args, {

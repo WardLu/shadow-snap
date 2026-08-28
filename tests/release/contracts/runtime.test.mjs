@@ -326,7 +326,13 @@ function gitFactsRunner({ root, config, release } = {}) {
 
 test('default Admission runs only committed local gates and writes evidence', async () => {
   const { root, config } = await tempRepository();
-  const { runner, commandResults } = gitFactsRunner({ root, config });
+  const base = gitFactsRunner({ root, config });
+  const admissionChildOptions = [];
+  const runner = async (command, args, options) => {
+    if (command === 'npm' || command === 'node') admissionChildOptions.push(options);
+    return base.runner(command, args, options);
+  };
+  const { commandResults } = base;
   const runtime = await createRuntime({
     repoRoot: root,
     runner,
@@ -356,6 +362,11 @@ test('default Admission runs only committed local gates and writes evidence', as
   assert.equal(result.mode, 'hosted');
   assert.equal(commandResults.some(([command]) => command === 'vercel'), false);
   assert.equal(commandResults.some(([command]) => command === 'gh'), true);
+  assert.ok(admissionChildOptions.length >= 3);
+  assert.equal(admissionChildOptions.every((options) => options.inheritEnv === false), true);
+  assert.equal(admissionChildOptions.every((options) => options.env?.OPENAI_API_KEY === undefined), true);
+  assert.equal(admissionChildOptions.every((options) => options.env?.GH_CONFIG_DIR), true);
+  assert.equal(admissionChildOptions.every((options) => options.env?.VERCEL_TOKEN === undefined), true);
   assert.doesNotReject(
     readFile(path.join(root, '.release-state/v1.2.3/release-admission.json')),
   );

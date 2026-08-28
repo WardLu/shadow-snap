@@ -52,17 +52,33 @@ import {
 
 const ZERO_SHA = '0'.repeat(40);
 const ADMISSION_RECEIPT_ASSET = 'release-admission-receipt.json';
-const ADMISSION_UNSET_ENV = [
-  'GH_TOKEN',
-  'GITHUB_TOKEN',
-  'VERCEL_TOKEN',
-  'VERCEL_OIDC_TOKEN',
-  'NPM_TOKEN',
-  'SUPABASE_ACCESS_TOKEN',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'AWS_ACCESS_KEY_ID',
-  'AWS_SECRET_ACCESS_KEY',
+const ADMISSION_ENV_KEYS = [
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'TEMP',
+  'TMP',
+  'CI',
+  'LANG',
+  'LC_ALL',
+  'TZ',
 ];
+
+function admissionChildEnvironment(environment, homeDirectory, temporaryDirectory) {
+  const child = {};
+  for (const key of ADMISSION_ENV_KEYS) {
+    if (typeof environment?.[key] === 'string') child[key] = environment[key];
+  }
+  child.PATH ??= '/usr/bin:/bin';
+  child.HOME = homeDirectory;
+  child.TMPDIR = temporaryDirectory;
+  child.XDG_CONFIG_HOME = path.join(homeDirectory, 'config');
+  child.XDG_DATA_HOME = path.join(homeDirectory, 'data');
+  child.XDG_CACHE_HOME = path.join(homeDirectory, 'cache');
+  child.GH_CONFIG_DIR = path.join(homeDirectory, 'gh');
+  child.CI = 'true';
+  return child;
+}
 
 function fail(reasonCode) {
   throw new Error(reasonCode);
@@ -1167,8 +1183,10 @@ async function runAdmission({
   const commandResults = [];
   const temporaryParent = await mkdtemp(path.join(tempRoot, 'shadow-release-admit-'));
   const checkout = path.join(temporaryParent, 'checkout');
+  const admissionHome = path.join(temporaryParent, 'home');
   let worktreeRegistered = false;
   try {
+    await mkdir(admissionHome, { mode: 0o700 });
     await runner('git', ['worktree', 'add', '--detach', checkout, target.targetSha], {
       cwd: repoRoot,
     });
@@ -1176,7 +1194,8 @@ async function runAdmission({
     for (const [command, ...args] of config.admissionCommands) {
       const result = await runner(command, args, {
         cwd: checkout,
-        unsetEnv: ADMISSION_UNSET_ENV,
+        env: admissionChildEnvironment(environment, admissionHome, temporaryParent),
+        inheritEnv: false,
       });
       commandResults.push({
         command,

@@ -39,6 +39,12 @@ test('rejects writable workflow permissions and npm lifecycle hooks', () => {
   );
   assert.ok(
     scanWorkflowText(
+      '.github/workflows/unsafe-quoted-permission.yml',
+      'permissions:\n  contents: "write"\n  statuses: write\nsteps:\n  - run: npm ci\n',
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
       '.github/workflows/unsafe-install.yml',
       'steps:\n  - run: npm ci\n',
     ).includes('workflow_npm_lifecycle_forbidden'),
