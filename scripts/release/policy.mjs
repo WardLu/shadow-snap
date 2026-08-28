@@ -302,24 +302,46 @@ function stripYamlStringsAndComments(line) {
   return result;
 }
 
-function extractTopLevelPermissions(text) {
+function extractPermissionBlocks(text) {
   const lines = text.split(/\r?\n/);
+  const blocks = [];
+  let blockScalarIndent = null;
   for (let index = 0; index < lines.length; index += 1) {
     const sanitized = stripYamlStringsAndComments(lines[index]);
-    if (!/^permissions\s*:/.test(sanitized)) continue;
+    const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
+    if (blockScalarIndent !== null) {
+      if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
+      blockScalarIndent = null;
+    }
+    if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
+      blockScalarIndent = indent;
+      continue;
+    }
+    const match = /^(\s*)permissions\s*:(.*)$/.exec(sanitized);
+    if (!match) continue;
 
-    const block = [sanitized.slice(sanitized.indexOf(':') + 1)];
-    for (let next = index + 1; next < lines.length; next += 1) {
+    const parentIndent = match[1].length;
+    const block = [lines[index].slice(lines[index].indexOf(':') + 1)];
+    let next = index + 1;
+    for (; next < lines.length; next += 1) {
       const nextSanitized = stripYamlStringsAndComments(lines[next]);
       if (nextSanitized.trim() === '') {
-        block.push(nextSanitized);
+        block.push(lines[next]);
         continue;
       }
-      if (!/^\s+/.test(nextSanitized)) break;
-      block.push(nextSanitized);
+      const nextIndent = nextSanitized.match(/^\s*/)?.[0].length ?? 0;
+      if (nextIndent <= parentIndent) break;
+      block.push(lines[next]);
     }
-    return block.join('\n');
+    index = next - 1;
+    blocks.push({ indent: parentIndent, value: block.join('\n') });
   }
+  return blocks;
+}
+
+function extractTopLevelPermissions(text) {
+  const topLevel = extractPermissionBlocks(text).find(({ indent }) => indent === 0);
+  if (topLevel) return topLevel.value;
   return null;
 }
 
@@ -328,7 +350,7 @@ function hasPermissionValue(permissionsBlock, scope, value) {
   const escapedScope = scope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(
-    `(?:^|[\\n,{])\\s*${escapedScope}\\s*:\\s*["']?${escapedValue}["']?(?=\\s|[,}]|$)`,
+    `(?:^|[\\n,{])\\s*["']?${escapedScope}["']?\\s*:\\s*["']?${escapedValue}["']?(?=\\s|[,}]|$)`,
     'i',
   ).test(permissionsBlock);
 }
@@ -342,7 +364,7 @@ function hasYamlAnchorOrAlias(text) {
       if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
       blockScalarIndent = null;
     }
-    if (/:\s*[|>][1-9]?[+-]?\s*$/.test(sanitized)) {
+    if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
       blockScalarIndent = indent;
       continue;
     }
@@ -390,17 +412,21 @@ export function scanWorkflowText(
     findings.push('workflow_dynamic_action_forbidden');
   }
   const permissionValuePattern =
-    /\b(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|metadata):\s*["']?([A-Za-z-]+)["']?/gi;
-  const writablePermission = [...normalized.matchAll(permissionValuePattern)].some(
+    /(?:^|[\n,{])\s*["']?(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|metadata)["']?\s*:\s*["']?([A-Za-z-]+)["']?/gi;
+  const permissionBlocks = extractPermissionBlocks(text);
+  const permissionText = permissionBlocks.map(({ value }) => value).join('\n');
+  const writablePermission = [...permissionText.matchAll(permissionValuePattern)].some(
     (match) => !['read', 'none'].includes(match[1].toLowerCase()),
   );
+  const permissionTag = permissionBlocks.some(({ value }) => /(?:^|[\s,{])!{1,2}[^\s,{]+/.test(value));
   if (
-    /\bpermissions:\s*["']?(?:write-all|write)["']?\b/i.test(normalized) ||
-    writablePermission
+    permissionBlocks.some(({ value }) => /^\s*["']?(?:write-all|write)["']?(?:\s*#.*)?$/i.test(value)) ||
+    writablePermission ||
+    permissionTag
   ) {
     findings.push('workflow_permission_write_forbidden');
   }
-  if (/\bpermissions:[^\n]*\$\{\{/i.test(text)) {
+  if (permissionBlocks.some(({ value }) => /\$\{\{/.test(value))) {
     findings.push('workflow_permission_dynamic_forbidden');
   }
   const topLevelPermissions = extractTopLevelPermissions(text);

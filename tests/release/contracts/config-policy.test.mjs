@@ -118,6 +118,18 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
       ['permissions:', '  contents: *写'].join('\n'),
     ).includes('workflow_yaml_alias_forbidden'),
   );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/quoted-permission-key.yml',
+      ['permissions: {"contents": write}'].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/tagged-permission.yml',
+      ['permissions:', '  contents: !!str write'].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/query-parameter.yml',
@@ -128,6 +140,25 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
         '  test:',
         '    steps:',
         '      - run: curl "https://example.test/?a=1&b=2"',
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/permission-text.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        'jobs:',
+        '  test:',
+        '    steps:',
+        '      - run: |',
+        '          echo "contents: write"',
+        '      - run: echo "permissions: write-all"',
+        '      - run: |-2',
+        '        *glob',
       ].join('\n'),
       { requireExplicitPermissions: true },
     ),

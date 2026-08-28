@@ -26,7 +26,7 @@ npm run release:anchor-admission -- --tag v1.2.0 --asset-id ORIGINAL_GITHUB_ASSE
 
 除 Admission 和 Audit 外，第一次调用只输出包含准确 repository、tag、commit、artifact manifest、old ref/Current、Team、Project、rootDirectory、domains、Vercel CLI 版本、配置 hash、nonce 和过期时间的授权摘要。`anchor-admission` 同样遵循该双确认流程；它的授权事实还绑定原始 Admission asset ID/SHA、receipt 名称和已验证的 run/artifact 或 Billing proof。用户明确确认该摘要后，才可把对应 `authorizationDigest` 作为 `--authorize` 再调用。授权十分钟过期、只能消费一次，也不能跨仓、跨 tag、跨 deployment 或跨操作复用。
 
-Controller 固定使用 Vercel CLI `50.28.0`。Admission 在准确 tag SHA 的临时 detached worktree 中运行，不能用当前 checkout 的代码替旧 tag 通过测试。workflow 使用 `npm ci --ignore-scripts`，并由静态策略拒绝可写权限、YAML alias、生命周期脚本和未精确审阅的 npm 入口；每个 workflow 都必须显式声明权限。manual dispatch 只有在 GitHub 的 workflow ref 也选择同一个 tag 时才有效；Controller 会核对真实 run 的 repository、workflow path/ref、event、run attempt 和 target SHA。Release evidence 同时保存完整 Git tree manifest，Stage 前会重新计算并逐项比对。
+Controller 固定使用 Vercel CLI `50.28.0`。Admission 在准确 tag SHA 的临时 detached worktree 中运行，不能用当前 checkout 的代码替旧 tag 通过测试。workflow 使用 `npm ci --ignore-scripts`，并由静态策略拒绝可写权限、YAML alias/anchor/tag、生命周期脚本和未精确审阅的 npm 入口；每个 workflow 都必须显式声明顶层权限。manual dispatch 只有在 GitHub 的 workflow ref 也选择同一个 tag 时才有效；Controller 会核对真实 run 的 repository、workflow path/ref、event、run attempt 和 target SHA。Release evidence 同时保存完整 Git tree manifest，Stage 前会重新计算并逐项比对。
 
 ## 首次切换顺序
 
