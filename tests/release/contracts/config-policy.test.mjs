@@ -379,6 +379,32 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
       ].join('\n'),
     ).includes('workflow_permission_structure_forbidden'),
   );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/split-complex-permissions-key.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs:',
+        '  deploy:',
+        '    ?',
+        '      permissions',
+        '    : {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/split-tagged-complex-permissions-key.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs:',
+        '  deploy:',
+        '    ? !!str',
+        '      permissions',
+        '    : {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/query-parameter.yml',
