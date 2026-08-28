@@ -274,6 +274,45 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
       ].join('\n'),
     ).includes('workflow_permission_structure_forbidden'),
   );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/tagged-jobs-value.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs: !!map',
+        '  steps:',
+        '    ? permissions',
+        '    : {contents: write}',
+        '    runs-on: ubuntu-latest',
+        '    steps: []',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/bare-tag-jobs-key.yml',
+      [
+        'permissions: {contents: read}',
+        '! jobs:',
+        '  steps:',
+        '    ? permissions',
+        '    : {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/complex-jobs-key.yml',
+      [
+        'permissions: {contents: read}',
+        '? jobs',
+        ':',
+        '  steps:',
+        '    ? permissions',
+        '    : {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/query-parameter.yml',

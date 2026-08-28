@@ -496,9 +496,23 @@ function hasUnsupportedPermissionStructure(text) {
       stepsIndent = null;
     }
     const uncommented = stripYamlComment(line);
-    const jobs = /^(\s*)(?:(?:!{1,2}\S+|&\S+)\s+)*(?:jobs|["']jobs["'])\s*:(.*)$/i.exec(
+    if (
+      /^\s*\?\s*(?:(?:!{1,2}\S*|&\S+)\s+)*(?:jobs|["']jobs["'])\s*:?\s*$/i.test(
+        uncommented,
+      )
+    ) {
+      return true;
+    }
+    const jobs = /^(\s*)(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*(?:jobs|["']jobs["'])\s*:(.*)$/i.exec(
       uncommented,
     );
+    const taggedJobsKey = /^(?:\s*)(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)+/.test(uncommented);
+    if (jobs && jobs[1].length === 0 && taggedJobsKey) {
+      return true;
+    }
+    if (jobs && jobs[1].length === 0 && jobs[2].trim() !== '' && /^!/.test(jobs[2].trim())) {
+      return true;
+    }
     if (jobs && jobs[1].length === 0 && jobs[2].trim() === '') {
       jobsIndent = jobs[1].length;
       jobIndent = null;
