@@ -466,6 +466,8 @@ function hasYamlAnchorOrAlias(text) {
 
 function hasUnsupportedPermissionStructure(text) {
   let blockScalarIndent = null;
+  let jobsIndent = null;
+  let jobIndent = null;
   let stepsIndent = null;
   for (const line of text.split(/\r?\n/)) {
     const sanitized = stripYamlStringsAndComments(line);
@@ -478,12 +480,36 @@ function hasUnsupportedPermissionStructure(text) {
       blockScalarIndent = indent;
       continue;
     }
+    if (jobsIndent !== null && indent <= jobsIndent) {
+      jobIndent = null;
+      stepsIndent = null;
+      jobsIndent = null;
+    } else if (jobIndent !== null && indent <= jobIndent) {
+      stepsIndent = null;
+      jobIndent = null;
+    } else if (stepsIndent !== null && indent <= stepsIndent) {
+      stepsIndent = null;
+    }
     if (stepsIndent !== null) {
       if (sanitized.trim() === '' || indent > stepsIndent) continue;
       stepsIndent = null;
     }
+    const jobs = /^(\s*)jobs\s*:(.*)$/i.exec(sanitized);
+    if (jobs && jobs[2].trim() === '') {
+      jobsIndent = jobs[1].length;
+      jobIndent = null;
+      stepsIndent = null;
+      continue;
+    }
+    if (jobsIndent !== null && jobIndent === null && indent > jobsIndent) {
+      jobIndent = indent;
+    }
     const steps = /^(\s*)steps\s*:(.*)$/i.exec(sanitized);
-    if (steps && steps[2].trim() === '') {
+    if (
+      steps &&
+      steps[2].trim() === '' &&
+      (jobsIndent === null || (jobIndent !== null && indent > jobIndent))
+    ) {
       stepsIndent = steps[1].length;
       continue;
     }
