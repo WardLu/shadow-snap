@@ -333,17 +333,12 @@ function stripYamlComment(line) {
   return line;
 }
 
-function yamlQuoteStartsAtNode(line, index) {
+function yamlQuoteStartsAtNode(line, index, flowDepth = 0) {
   const prefix = line.slice(0, index);
   const previous = prefix.match(/\S(?=\s*$)/)?.[0];
   if (!previous) return true;
   if (':?[{'.includes(previous)) return true;
   if (previous === ',') {
-    let flowDepth = 0;
-    for (const character of prefix) {
-      if (character === '{' || character === '[') flowDepth += 1;
-      if (character === '}' || character === ']') flowDepth = Math.max(0, flowDepth - 1);
-    }
     if (flowDepth > 0) return true;
   }
   if (previous === '-') {
@@ -354,18 +349,28 @@ function yamlQuoteStartsAtNode(line, index) {
   return /^(?:!{1,2}(?:\S+)?|&\S+)$/.test(token ?? '');
 }
 
-function yamlStructuralLine(line) {
+function yamlStructuralLine(line, initialFlowDepth = 0) {
   let result = '';
   let escapedKey = false;
+  let flowDepth = initialFlowDepth;
+  let quoteState = null;
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
     if (character !== '"' && character !== "'") {
       if (character === '#') break;
+      if (character === '}' || character === ']') {
+        flowDepth = Math.max(0, flowDepth - 1);
+      } else if (
+        (character === '{' || character === '[') &&
+        yamlQuoteStartsAtNode(line, index, flowDepth)
+      ) {
+        flowDepth += 1;
+      }
       result += character;
       continue;
     }
 
-    if (!yamlQuoteStartsAtNode(line, index)) {
+    if (!yamlQuoteStartsAtNode(line, index, flowDepth)) {
       result += character;
       continue;
     }
@@ -398,40 +403,10 @@ function yamlStructuralLine(line) {
       if (content.includes('\\')) escapedKey = true;
     } else {
       result += ' '.repeat(Math.max(1, (closed ? index : line.length) - start + 1));
+      if (!closed) quoteState = quote;
     }
   }
-  return { text: result, escapedKey };
-}
-
-function yamlQuoteState(line, initialQuote = null) {
-  let quote = initialQuote;
-  let escaped = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (quote) {
-      if (quote === '"' && escaped) {
-        escaped = false;
-      } else if (quote === '"' && character === '\\') {
-        escaped = true;
-      } else if (quote === '"' && character === '"') {
-        quote = null;
-      } else if (quote === "'" && character === "'" && line[index + 1] === "'") {
-        index += 1;
-      } else if (quote === "'" && character === "'") {
-        quote = null;
-      }
-      continue;
-    }
-    if (
-      (character === '"' || character === "'") &&
-      yamlQuoteStartsAtNode(line, index)
-    ) {
-      quote = character;
-      continue;
-    }
-    if (character === '#') break;
-  }
-  return quote;
+  return { text: result, escapedKey, flowDepth, quoteState };
 }
 
 function yamlQuoteCloseIndex(line, quote) {
@@ -457,6 +432,7 @@ function scanYamlLines(text) {
   const lines = [];
   let blockScalarIndent = null;
   let multilineQuote = null;
+  let flowDepth = 0;
   for (const sourceLine of text.split(/\r?\n/)) {
     const sourceIndent = sourceLine.match(/^\s*/)?.[0].length ?? 0;
     let line = sourceLine;
@@ -480,7 +456,7 @@ function scanYamlLines(text) {
         continue;
       }
     }
-    const structural = yamlStructuralLine(line);
+    const structural = yamlStructuralLine(line, flowDepth);
     const blockScalar = /:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(structural.text);
     const skipped = structural.text.trim() === '';
     lines.push({
@@ -494,7 +470,8 @@ function scanYamlLines(text) {
       blockScalarIndent = sourceIndent;
       continue;
     }
-    multilineQuote = yamlQuoteState(line);
+    multilineQuote = structural.quoteState;
+    flowDepth = structural.flowDepth;
   }
   return lines;
 }

@@ -556,6 +556,32 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
   );
   assert.ok(
     scanWorkflowText(
+      '.github/workflows/plain-brace-comma-quote-permissions-key.yml',
+      [
+        'permissions: {contents: read, actions: read}',
+        'env:',
+        '  MESSAGE: hello {, "world',
+        'jobs:',
+        '  deploy:',
+        '    permissions: {contents: write}',
+        '    steps: []',
+      ].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/multiline-flow-permissions-key.yml',
+      [
+        'permissions: {contents: read, actions: read}',
+        'jobs:',
+        '  deploy: {',
+        '    runs-on: ubuntu-latest, "permissions": {contents: write}, steps: []',
+        '  }',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
       '.github/workflows/quoted-block-marker-permissions-key.yml',
       [
         'permissions: {contents: read, actions: read}',
