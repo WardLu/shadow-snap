@@ -1273,7 +1273,10 @@ async function localAudit({ runner, repoRoot, config }) {
   for (const name of workflowNames.filter((entry) => /\.ya?ml$/.test(entry)).sort()) {
     const workflowPath = `.github/workflows/${name}`;
     const text = await readFile(path.join(repoRoot, workflowPath), 'utf8');
-    for (const reasonCode of scanWorkflowText(workflowPath, text, { scripts: packageScripts })) {
+    for (const reasonCode of scanWorkflowText(workflowPath, text, {
+      scripts: packageScripts,
+      requireExplicitPermissions: true,
+    })) {
       findings.push({ reasonCode, path: workflowPath });
     }
   }

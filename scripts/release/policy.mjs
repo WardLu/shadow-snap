@@ -274,7 +274,11 @@ export function assertReleaseTag(tag, pattern = DEFAULT_TAG_PATTERN) {
   return tag;
 }
 
-export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
+export function scanWorkflowText(
+  workflowPath,
+  text,
+  { scripts = null, requireExplicitPermissions = false } = {},
+) {
   if (typeof workflowPath !== 'string' || typeof text !== 'string') {
     throw new TypeError('workflow_scan_input_invalid');
   }
@@ -285,6 +289,9 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   const npmParse = parseNpmInvocations(normalized);
   const npmInvocations = npmParse.invocations;
   if (npmParse.invalidOption) findings.push('workflow_npm_option_forbidden');
+  if (/[&*][A-Za-z0-9_-]+/.test(text)) {
+    findings.push('workflow_yaml_alias_forbidden');
+  }
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
@@ -299,6 +306,15 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
     writablePermission
   ) {
     findings.push('workflow_permission_write_forbidden');
+  }
+  if (/\bpermissions:[^\n]*\$\{\{/i.test(text)) {
+    findings.push('workflow_permission_dynamic_forbidden');
+  }
+  if (
+    requireExplicitPermissions &&
+    !/^\s*permissions\s*:/im.test(text)
+  ) {
+    findings.push('workflow_permissions_missing');
   }
   if (
     workflowPath === '.github/workflows/release.yml' &&
@@ -495,7 +511,10 @@ export async function verifyTargetTree({ runner, repoRoot, tag, config }) {
   const workflowFindings = [];
   for (const workflowPath of workflowPaths) {
     const workflow = await git(runner, repoRoot, ['show', `${targetSha}:${workflowPath}`]);
-    for (const reasonCode of scanWorkflowText(workflowPath, workflow.stdout, { scripts: targetPackageScripts })) {
+    for (const reasonCode of scanWorkflowText(workflowPath, workflow.stdout, {
+      scripts: targetPackageScripts,
+      requireExplicitPermissions: true,
+    })) {
       workflowFindings.push({ path: workflowPath, reasonCode });
     }
   }

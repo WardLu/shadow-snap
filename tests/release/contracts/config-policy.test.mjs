@@ -72,6 +72,31 @@ test('rejects writable workflow permissions and npm lifecycle hooks', () => {
   );
 });
 
+test('rejects YAML permission aliases and requires explicit permissions in enforced scans', () => {
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/alias-permission.yml',
+      [
+        'x-write: &write_mode write',
+        'permissions:',
+        '  contents: read',
+        '  actions: read',
+        'jobs:',
+        '  admission:',
+        '    permissions:',
+        '      contents: *write_mode',
+      ].join('\n'),
+    ).includes('workflow_yaml_alias_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/no-permissions.yml',
+      'steps:\n  - run: echo ok\n',
+      { requireExplicitPermissions: true },
+    ).includes('workflow_permissions_missing'),
+  );
+});
+
 test('does not reject the read-only admission workflow', () => {
   const text = [
     'permissions:',
