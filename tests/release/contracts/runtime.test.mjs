@@ -98,7 +98,7 @@ function hostedReceipt(config, admissionRaw) {
       createdAt: '2026-08-27T23:00:00.000Z',
       expiresAt: '2026-09-26T23:00:00.000Z',
     },
-    createdAt: '2026-08-28T00:00:00.000Z',
+    releasePublishedAt: '2026-08-27T23:30:00.000Z',
   };
 }
 
@@ -119,7 +119,7 @@ async function tempRepository() {
   );
   await writeFile(
     path.join(root, '.github/workflows/release.yml'),
-    'permissions:\n  contents: read\nsteps:\n  - run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted\n',
+    'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted\n',
   );
   return { root, config };
 }
@@ -161,7 +161,7 @@ function gitFactsRunner({ root, config, release } = {}) {
       }
       if (args[0] === 'show' && args[1].endsWith(':.github/workflows/release.yml')) {
         return {
-          stdout: 'permissions:\n  contents: read\nsteps:\n  - run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted\n',
+          stdout: 'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted\n',
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
         };
@@ -703,7 +703,7 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
     await readFile(path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'), 'utf8'),
   );
   assert.equal(receipt.kind, 'release-admission-receipt');
-  assert.equal(receipt.createdAt, release.published_at);
+  assert.equal(receipt.releasePublishedAt, release.published_at);
   assert.equal(receipt.artifact.id, 88);
   assert.equal(receipt.artifact.evidenceSha256, preview.authorization.facts.admissionIdentity.sha256);
 });
@@ -720,8 +720,9 @@ test('Billing fallback accepts only a failed zero-step run with a billing annota
             {
               id: 44,
               head_sha: TARGET_SHA,
+              head_branch: 'v1.2.3',
               event: 'push',
-              path: '.github/workflows/release.yml',
+              path: '.github/workflows/release.yml@refs/tags/v1.2.3',
               run_attempt: 1,
               status: 'completed',
               conclusion: 'failure',
@@ -773,9 +774,16 @@ test('Billing fallback accepts only a failed zero-step run with a billing annota
     runner,
     repoRoot: '/repo',
     repository: 'WardLu/shadow-snap',
+    tag: 'v1.2.3',
     targetSha: TARGET_SHA,
   });
   assert.deepEqual(proof, {
+    repository: 'WardLu/shadow-snap',
+    tag: 'v1.2.3',
+    workflowPath: '.github/workflows/release.yml',
+    workflowRef: 'WardLu/shadow-snap/.github/workflows/release.yml@refs/tags/v1.2.3',
+    event: 'push',
+    headSha: TARGET_SHA,
     workflowRunId: 44,
     workflowRunAttempt: 1,
     jobId: 55,
@@ -794,7 +802,7 @@ test('Billing fallback rejects code steps or non-billing failures', async () => 
       return {
         stdout: JSON.stringify({
           workflow_runs: [
-            { id: 44, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+            { id: 44, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'failure' },
           ],
         }),
       };
@@ -813,6 +821,7 @@ test('Billing fallback rejects code steps or non-billing failures', async () => 
       runner: baseRunner,
       repoRoot: '/repo',
       repository: 'WardLu/shadow-snap',
+      tag: 'v1.2.3',
       targetSha: TARGET_SHA,
     }),
     /billing_fallback_code_steps_started/,
@@ -826,8 +835,8 @@ test('Billing fallback rejects a billing run when another run for the same SHA e
       return {
         stdout: JSON.stringify({
           workflow_runs: [
-            { id: 45, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
-            { id: 44, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+            { id: 45, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+            { id: 44, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'failure' },
           ],
         }),
       };
@@ -853,6 +862,7 @@ test('Billing fallback rejects a billing run when another run for the same SHA e
       runner,
       repoRoot: '/repo',
       repository: 'WardLu/shadow-snap',
+      tag: 'v1.2.3',
       targetSha: TARGET_SHA,
       expectedProof: {
         workflowRunId: 45,
@@ -868,8 +878,8 @@ test('Billing fallback rejects a billing run when another run for the same SHA e
 
 test('Billing fallback fails closed for non-terminal or non-failure workflow runs', async () => {
   for (const run of [
-    { id: 70, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'in_progress', conclusion: null },
-    { id: 71, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'cancelled' },
+    { id: 70, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'in_progress', conclusion: null },
+    { id: 71, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'cancelled' },
   ]) {
     const runner = async (command, args) => {
       const endpoint = args[1];
@@ -883,6 +893,7 @@ test('Billing fallback fails closed for non-terminal or non-failure workflow run
         runner,
         repoRoot: '/repo',
         repository: 'WardLu/shadow-snap',
+        tag: 'v1.2.3',
         targetSha: TARGET_SHA,
       }),
       run.status === 'completed'
@@ -900,12 +911,12 @@ test('Billing fallback scans all paginated runs before choosing a candidate', as
         stdout: JSON.stringify([
           {
             workflow_runs: [
-              { id: 80, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+              { id: 80, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'failure' },
             ],
           },
           {
             workflow_runs: [
-              { id: 81, head_sha: TARGET_SHA, event: 'push', path: '.github/workflows/release.yml', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+              { id: 81, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'failure' },
             ],
           },
         ]),
@@ -924,6 +935,7 @@ test('Billing fallback scans all paginated runs before choosing a candidate', as
       runner,
       repoRoot: '/repo',
       repository: 'WardLu/shadow-snap',
+      tag: 'v1.2.3',
       targetSha: TARGET_SHA,
       expectedProof: {
         workflowRunId: 80,
@@ -935,6 +947,49 @@ test('Billing fallback scans all paginated runs before choosing a candidate', as
     }),
     /billing_fallback_code_steps_started/,
   );
+});
+
+test('Billing fallback isolates tags that share the same commit SHA', async () => {
+  const runner = async (command, args) => {
+    const endpoint = args[1];
+    if (endpoint.includes('/actions/workflows/release.yml/runs')) {
+      return {
+        stdout: JSON.stringify({
+          workflow_runs: [
+            { id: 90, head_sha: TARGET_SHA, head_branch: 'v1.2.3', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.3', run_attempt: 1, status: 'completed', conclusion: 'success' },
+            { id: 91, head_sha: TARGET_SHA, head_branch: 'v1.2.4', event: 'push', path: '.github/workflows/release.yml@refs/tags/v1.2.4', run_attempt: 1, status: 'completed', conclusion: 'failure' },
+          ],
+        }),
+      };
+    }
+    if (endpoint.includes('/actions/runs/91/jobs')) {
+      return {
+        stdout: JSON.stringify({
+          jobs: [{ id: 910, run_id: 91, head_sha: TARGET_SHA, status: 'completed', conclusion: 'failure', name: 'admission', steps: [], check_run_url: 'https://api.github.com/repos/WardLu/shadow-snap/check-runs/911' }],
+        }),
+      };
+    }
+    if (endpoint.includes(`/commits/${TARGET_SHA}/check-runs`)) {
+      return {
+        stdout: JSON.stringify({
+          check_runs: [{ id: 911, name: 'admission', conclusion: 'failure', output: { annotations_count: 1 } }],
+        }),
+      };
+    }
+    if (endpoint.includes('/check-runs/911/annotations')) {
+      return { stdout: JSON.stringify([{ message: 'billing spending limit prevented the job from starting' }]) };
+    }
+    throw new Error(`unexpected:${endpoint}`);
+  };
+  const proof = await verifyBillingFallback({
+    runner,
+    repoRoot: '/repo',
+    repository: 'WardLu/shadow-snap',
+    tag: 'v1.2.4',
+    targetSha: TARGET_SHA,
+  });
+  assert.equal(proof.tag, 'v1.2.4');
+  assert.equal(proof.workflowRunId, 91);
 });
 
 test('release asset anchor freezes on byte or identity replacement', async () => {

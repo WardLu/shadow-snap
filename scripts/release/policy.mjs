@@ -147,12 +147,14 @@ function isNpmExecutable(token) {
 function consumeNpmOptions(tokens, start) {
   let index = start;
   let invalid = false;
+  let ignoreScripts = false;
   while (index < tokens.length) {
     const token = tokens[index]?.value;
     if (!isNpmOption(token) || token === '--') break;
     const equals = token.indexOf('=');
     if (equals !== -1) {
       const option = token.slice(0, equals);
+      if (option === '--ignore-scripts') ignoreScripts = true;
       if (
         !NPM_OPTIONS_WITH_VALUE.has(option) &&
         !NPM_OPTIONS_WITHOUT_VALUE.has(option)
@@ -165,6 +167,7 @@ function consumeNpmOptions(tokens, start) {
     if (NPM_OPTIONS_WITH_VALUE.has(token)) {
       index += 2;
     } else if (NPM_OPTIONS_WITHOUT_VALUE.has(token)) {
+      if (token === '--ignore-scripts') ignoreScripts = true;
       index += 1;
     } else if ((token.startsWith('-w') || token.startsWith('-C')) && token.length > 2) {
       // npm accepts attached short option values such as `-wfoo` and `-C.`.
@@ -179,7 +182,7 @@ function consumeNpmOptions(tokens, start) {
       if (index < tokens.length && !isNpmOption(tokens[index]?.value)) index += 1;
     }
   }
-  return { index, invalid };
+  return { index, invalid, ignoreScripts };
 }
 
 function parseNpmInvocations(text) {
@@ -188,9 +191,14 @@ function parseNpmInvocations(text) {
   let invalidOption = false;
   let dynamicLauncher = false;
   for (let index = 0; index < tokens.length; index += 1) {
+    const dynamicOptions = tokens[index].dynamic
+      ? consumeNpmOptions(tokens, index + 1)
+      : null;
     if (
       tokens[index].dynamic &&
-      ['run', 'run-script', 'exec', 'x'].includes(tokens[index + 1]?.value)
+      ['run', 'run-script', 'exec', 'x'].includes(
+        tokens[dynamicOptions?.index ?? -1]?.value,
+      )
     ) {
       dynamicLauncher = true;
     }
@@ -200,15 +208,37 @@ function parseNpmInvocations(text) {
     let cursor = globalOptions.index;
     if (tokens[cursor]?.value === '--') cursor += 1;
     const command = tokens[cursor]?.value;
-    if (!['run', 'run-script', 'exec', 'x'].includes(command)) continue;
+    if (!['run', 'run-script', 'exec', 'x', 'ci', 'install', 'i'].includes(command)) continue;
+    const commandIndex = cursor;
     cursor += 1;
     const commandOptions = consumeNpmOptions(tokens, cursor);
     invalidOption ||= commandOptions.invalid;
     cursor = commandOptions.index;
     const target = tokens[cursor] ?? null;
+    const commandArgsStart = commandIndex + 1;
+    const commandArgsOffset = tokens
+      .slice(commandArgsStart)
+      .findIndex((token) => ['&&', '||', ';'].includes(token.value));
+    const commandArgsEnd =
+      commandArgsOffset === -1
+        ? tokens.length
+        : commandArgsStart + commandArgsOffset;
+    const commandArgs = tokens.slice(commandArgsStart, commandArgsEnd);
     invocations.push({
-      kind: command === 'run' || command === 'run-script' ? 'run' : 'exec',
+      kind:
+        command === 'run' || command === 'run-script'
+          ? 'run'
+          : command === 'exec' || command === 'x'
+            ? 'exec'
+            : 'install',
       target,
+      ignoreScripts:
+        globalOptions.ignoreScripts ||
+        commandOptions.ignoreScripts ||
+        commandArgs.some(
+          ({ value }) =>
+            value === '--ignore-scripts' || value.startsWith('--ignore-scripts='),
+        ),
     });
   }
   return { invocations, invalidOption, dynamicLauncher };
@@ -247,6 +277,21 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
     findings.push('workflow_dynamic_action_forbidden');
   }
   if (
+    /\bpermissions:\s*(?:write-all|write)\b/i.test(normalized) ||
+    /\b(?:contents|actions|checks|deployments|id-token|packages|pull-requests|security-events):\s*write\b/i.test(
+      normalized,
+    )
+  ) {
+    findings.push('workflow_permission_write_forbidden');
+  }
+  if (
+    workflowPath === '.github/workflows/release.yml' &&
+    (!/\bpermissions:\s+contents:\s+read\b/i.test(normalized) ||
+      !/\bpermissions:.*\bactions:\s+read\b/i.test(normalized))
+  ) {
+    findings.push('workflow_permissions_missing_or_not_readonly');
+  }
+  if (
     DYNAMIC_HTTP_CLIENT.test(normalized) &&
     SENSITIVE_WORKFLOW_TOKEN.test(normalized) &&
     (PRODUCTION_API_HOST.test(normalized) || DYNAMIC_WRITE_METHOD.test(normalized))
@@ -268,6 +313,12 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
     findings.push('workflow_dynamic_npm_write_forbidden');
   }
   for (const invocation of npmInvocations) {
+    if (invocation.kind === 'install') {
+      if (!invocation.ignoreScripts) {
+        findings.push('workflow_npm_lifecycle_forbidden');
+      }
+      continue;
+    }
     if (invocation.kind === 'exec') {
       // npm exec can install or execute an arbitrary package; a production
       // workflow must not use it as an indirect command launcher.

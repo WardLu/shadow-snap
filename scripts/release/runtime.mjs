@@ -505,9 +505,13 @@ export async function verifyBillingFallback({
   runner,
   repoRoot,
   repository,
+  tag,
   targetSha,
   expectedProof = null,
 }) {
+  if (typeof tag !== 'string' || !/^v[0-9A-Za-z.-]+$/.test(tag)) {
+    fail('billing_fallback_tag_invalid');
+  }
   const matchingRuns = await githubApiPaginatedObjects({
     runner,
     repoRoot,
@@ -519,7 +523,9 @@ export async function verifyBillingFallback({
     (run) =>
       run.head_sha === targetSha &&
       ['push', 'workflow_dispatch'].includes(run.event) &&
-      run.path?.split('@')[0] === '.github/workflows/release.yml',
+      run.head_branch === tag &&
+      run.path?.split('@')[0] === '.github/workflows/release.yml' &&
+      (run.path?.endsWith(`@refs/tags/${tag}`) || run.path?.endsWith(`@${tag}`)),
   );
   if (relevantRuns.length === 0) fail('billing_fallback_failed_run_missing');
   if (relevantRuns.some((run) => run.status !== 'completed')) {
@@ -627,6 +633,12 @@ export async function verifyBillingFallback({
       fail('billing_fallback_annotation_binding_mismatch');
     }
     billingCandidate = {
+      repository,
+      tag,
+      workflowPath: '.github/workflows/release.yml',
+      workflowRef: `${repository}/.github/workflows/release.yml@refs/tags/${tag}`,
+      event: failedRun.event,
+      headSha: targetSha,
       workflowRunId: failedRun.id,
       workflowRunAttempt: failedRun.run_attempt,
       jobId: failedJob.id,
@@ -668,9 +680,16 @@ function assertHostedProofShape(proof, { config, tag, targetSha, completed = fal
   return proof;
 }
 
-function assertBillingProofShape(proof) {
+function assertBillingProofShape(proof, { repository, tag, targetSha } = {}) {
   if (
     !proof ||
+    (repository && proof.repository !== repository) ||
+    (tag && proof.tag !== tag) ||
+    (targetSha && proof.headSha !== targetSha) ||
+    proof.workflowPath !== '.github/workflows/release.yml' ||
+    proof.workflowRef !==
+      `${proof.repository}/.github/workflows/release.yml@refs/tags/${proof.tag}` ||
+    !['push', 'workflow_dispatch'].includes(proof.event) ||
     !Number.isInteger(proof.workflowRunId) ||
     !Number.isInteger(proof.workflowRunAttempt) ||
     !Number.isInteger(proof.jobId) ||
@@ -696,8 +715,8 @@ function assertAdmissionReceipt({
     receipt.repository !== config.repository ||
     receipt.tag !== tag ||
     receipt.targetSha !== admission.targetSha ||
-    typeof receipt.createdAt !== 'string' ||
-    !Number.isFinite(Date.parse(receipt.createdAt)) ||
+    typeof receipt.releasePublishedAt !== 'string' ||
+    !Number.isFinite(Date.parse(receipt.releasePublishedAt)) ||
     canonicalJson(receipt.admissionAsset) !== canonicalJson(admissionIdentity) ||
     receipt.mode !== admission.mode
   ) {
@@ -746,7 +765,11 @@ function assertAdmissionReceipt({
     if (receipt.hostedProof !== null || receipt.artifact !== null) {
       fail('billing_fallback_receipt_shape_invalid');
     }
-    assertBillingProofShape(receipt.billingProof);
+    assertBillingProofShape(receipt.billingProof, {
+      repository: config.repository,
+      tag,
+      targetSha: admission.targetSha,
+    });
     if (canonicalJson(receipt.billingProof) !== canonicalJson(admission.billingProof)) {
       fail('billing_fallback_receipt_binding_mismatch');
     }
@@ -1126,6 +1149,7 @@ async function runAdmission({
         runner,
         repoRoot,
         repository: config.repository,
+        tag,
         targetSha: target.targetSha,
       })
     : null;
@@ -1501,9 +1525,11 @@ async function readAdmissionAnchorFacts({
         runner,
         repoRoot,
         repository,
+        tag,
         targetSha: admission.targetSha,
         expectedProof: admission.billingProof,
       }),
+      { repository, tag, targetSha: admission.targetSha },
     );
   }
   return {
@@ -2091,7 +2117,7 @@ async function persistAdmissionReceipt({
       hostedProof: proof,
       billingProof: null,
       artifact,
-      createdAt: facts.releasePublishedAt,
+      releasePublishedAt: facts.releasePublishedAt,
     };
   } else if (facts.mode === 'billing-fallback') {
     receipt = {
@@ -2105,7 +2131,7 @@ async function persistAdmissionReceipt({
       hostedProof: null,
       billingProof: facts.provenance,
       artifact: null,
-      createdAt: facts.releasePublishedAt,
+      releasePublishedAt: facts.releasePublishedAt,
     };
   } else {
     fail('release_admission_receipt_mode_invalid');

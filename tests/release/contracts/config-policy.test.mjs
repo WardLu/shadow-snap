@@ -30,10 +30,40 @@ test('rejects production writes regardless of workflow trigger', () => {
   ]);
 });
 
+test('rejects writable workflow permissions and npm lifecycle hooks', () => {
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/unsafe.yml',
+      'permissions:\n  contents: write\nsteps:\n  - run: npm ci\n',
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/unsafe-install.yml',
+      'steps:\n  - run: npm ci\n',
+    ).includes('workflow_npm_lifecycle_forbidden'),
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/safe-install.yml',
+      'permissions:\n  contents: read\nsteps:\n  - run: npm ci --ignore-scripts\n',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/safe-install-global-option.yml',
+      'steps:\n  - run: npm --ignore-scripts ci\n',
+    ),
+    [],
+  );
+});
+
 test('does not reject the read-only admission workflow', () => {
   const text = [
     'permissions:',
     '  contents: read',
+    '  actions: read',
     'steps:',
     "  - run: npm run release:admit -- --tag '$GITHUB_REF_NAME' --hosted",
   ].join('\n');
@@ -48,7 +78,7 @@ test('rejects release creation and production ref updates', () => {
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/release.yml',
-      'steps:\n  - run: gh release create v1.2.3',
+      'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: gh release create v1.2.3',
     ),
     ['workflow_release_write'],
   );
@@ -115,7 +145,7 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     ['workflow_npm_write_forbidden'],
   );
   assert.deepEqual(
-    scanWorkflowText('.github/workflows/release.yml', 'steps:\n  - run: npm run release:admit -- --tag v1.2.3 --hosted\n'),
+    scanWorkflowText('.github/workflows/release.yml', 'permissions:\n  contents: read\n  actions: read\nsteps:\n  - run: npm run release:admit -- --tag v1.2.3 --hosted\n'),
     [],
   );
   assert.deepEqual(
@@ -161,6 +191,12 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     scanWorkflowText(
       '.github/workflows/dynamic-npm.yml',
       'steps:\n  - run: NPM=$(command -v npm); "$NPM" run "$SCRIPT"\n',
+    ).includes('workflow_dynamic_npm_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/dynamic-npm-options.yml',
+      'steps:\n  - run: "$NPM" --silent run release:stage\n',
     ).includes('workflow_dynamic_npm_write_forbidden'),
   );
   assert.deepEqual(
