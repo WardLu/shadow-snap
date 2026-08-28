@@ -201,6 +201,18 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
   );
   assert.ok(
     scanWorkflowText(
+      '.github/workflows/escaped-complex-permissions-key.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs:',
+        '  deploy:',
+        '    ? "permis\\u0073ions"',
+        '    : {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_structure_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
       '.github/workflows/run-job-permissions-key.yml',
       [
         'permissions: {contents: read}',
@@ -251,6 +263,21 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
         'env:',
         '  MESSAGE: "{permissions: write}"',
         'with: {name: "{permissions: write}", path: out}',
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/named-step-permission-like-string.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs:',
+        '  test:',
+        '    steps:',
+        '      - name: Demo',
+        '        run: echo {permissions: write}',
       ].join('\n'),
       { requireExplicitPermissions: true },
     ),

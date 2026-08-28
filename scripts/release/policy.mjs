@@ -466,6 +466,7 @@ function hasYamlAnchorOrAlias(text) {
 
 function hasUnsupportedPermissionStructure(text) {
   let blockScalarIndent = null;
+  let stepsIndent = null;
   for (const line of text.split(/\r?\n/)) {
     const sanitized = stripYamlStringsAndComments(line);
     const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
@@ -477,10 +478,25 @@ function hasUnsupportedPermissionStructure(text) {
       blockScalarIndent = indent;
       continue;
     }
+    if (stepsIndent !== null) {
+      if (sanitized.trim() === '' || indent > stepsIndent) continue;
+      stepsIndent = null;
+    }
+    const steps = /^(\s*)steps\s*:/i.exec(sanitized);
+    if (steps) {
+      stepsIndent = steps[1].length;
+      continue;
+    }
     const structural = yamlStructuralLine(line);
-    if (/^\s*-\s*run\s*:/i.test(structural.text)) continue;
     const uncommented = stripYamlComment(line);
     if (structural.escapedKey) return true;
+    if (
+      /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*"[^"\n]*\\[^"\n]*"\s*$/.test(
+        uncommented,
+      )
+    ) {
+      return true;
+    }
     if (
       /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*(?:permissions|["']permissions["'])\s*:?\s*$/i.test(
         uncommented,
