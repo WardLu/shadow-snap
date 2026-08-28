@@ -269,6 +269,99 @@ function fail(reasonCode) {
   throw new Error(reasonCode);
 }
 
+function stripYamlStringsAndComments(line) {
+  let result = '';
+  let quote = null;
+  let escaped = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (quote) {
+      result += ' ';
+      if (quote === '"' && escaped) {
+        escaped = false;
+      } else if (quote === '"' && character === '\\') {
+        escaped = true;
+      } else if (quote === '"' && character === '"') {
+        quote = null;
+      } else if (quote === "'" && character === "'" && line[index + 1] === "'") {
+        result += ' ';
+        index += 1;
+      } else if (quote === "'" && character === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      result += ' ';
+      continue;
+    }
+    if (character === '#') break;
+    result += character;
+  }
+  return result;
+}
+
+function extractTopLevelPermissions(text) {
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const sanitized = stripYamlStringsAndComments(lines[index]);
+    if (!/^permissions\s*:/.test(sanitized)) continue;
+
+    const block = [sanitized.slice(sanitized.indexOf(':') + 1)];
+    for (let next = index + 1; next < lines.length; next += 1) {
+      const nextSanitized = stripYamlStringsAndComments(lines[next]);
+      if (nextSanitized.trim() === '') {
+        block.push(nextSanitized);
+        continue;
+      }
+      if (!/^\s+/.test(nextSanitized)) break;
+      block.push(nextSanitized);
+    }
+    return block.join('\n');
+  }
+  return null;
+}
+
+function hasPermissionValue(permissionsBlock, scope, value) {
+  if (typeof permissionsBlock !== 'string') return false;
+  const escapedScope = scope.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    `(?:^|[\\n,{])\\s*${escapedScope}\\s*:\\s*["']?${escapedValue}["']?(?=\\s|[,}]|$)`,
+    'i',
+  ).test(permissionsBlock);
+}
+
+function hasYamlAnchorOrAlias(text) {
+  let blockScalarIndent = null;
+  for (const line of text.split(/\r?\n/)) {
+    const sanitized = stripYamlStringsAndComments(line);
+    const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
+    if (blockScalarIndent !== null) {
+      if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
+      blockScalarIndent = null;
+    }
+    if (/:\s*[|>][1-9]?[+-]?\s*$/.test(sanitized)) {
+      blockScalarIndent = indent;
+      continue;
+    }
+    for (let index = 0; index < sanitized.length; index += 1) {
+      if (sanitized[index] !== '&' && sanitized[index] !== '*') continue;
+      const previous = sanitized.slice(0, index).match(/\S(?=\s*$)/)?.[0];
+      if (previous && !':,[{?'.includes(previous)) {
+        if (previous !== '-') continue;
+        const dashIndex = sanitized.slice(0, index).lastIndexOf('-');
+        if (!/^\s*$/.test(sanitized.slice(0, dashIndex))) continue;
+      }
+      const following = sanitized[index + 1];
+      if (!following || /\s|[\[\]{},]/.test(following)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 export function assertReleaseTag(tag, pattern = DEFAULT_TAG_PATTERN) {
   if (typeof tag !== 'string' || !pattern.test(tag)) fail('release_tag_invalid');
   return tag;
@@ -289,7 +382,7 @@ export function scanWorkflowText(
   const npmParse = parseNpmInvocations(normalized);
   const npmInvocations = npmParse.invocations;
   if (npmParse.invalidOption) findings.push('workflow_npm_option_forbidden');
-  if (/[&*][A-Za-z0-9_-]+/.test(text)) {
+  if (hasYamlAnchorOrAlias(text)) {
     findings.push('workflow_yaml_alias_forbidden');
   }
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
@@ -310,16 +403,14 @@ export function scanWorkflowText(
   if (/\bpermissions:[^\n]*\$\{\{/i.test(text)) {
     findings.push('workflow_permission_dynamic_forbidden');
   }
-  if (
-    requireExplicitPermissions &&
-    !/^\s*permissions\s*:/im.test(text)
-  ) {
+  const topLevelPermissions = extractTopLevelPermissions(text);
+  if (requireExplicitPermissions && topLevelPermissions === null) {
     findings.push('workflow_permissions_missing');
   }
   if (
     workflowPath === '.github/workflows/release.yml' &&
-    (!/\bpermissions:\s+contents:\s+read\b/i.test(normalized) ||
-      !/\bpermissions:.*\bactions:\s+read\b/i.test(normalized))
+    (!hasPermissionValue(topLevelPermissions, 'contents', 'read') ||
+      !hasPermissionValue(topLevelPermissions, 'actions', 'read'))
   ) {
     findings.push('workflow_permissions_missing_or_not_readonly');
   }

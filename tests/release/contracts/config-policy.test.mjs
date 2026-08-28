@@ -95,6 +95,44 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
       { requireExplicitPermissions: true },
     ).includes('workflow_permissions_missing'),
   );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/mixed-permissions.yml',
+      [
+        'jobs:',
+        '  safe:',
+        '    permissions:',
+        '      contents: read',
+        '    steps:',
+        '      - run: echo safe',
+        '  inherited:',
+        '    steps:',
+        '      - run: echo default',
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ).includes('workflow_permissions_missing'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/non-ascii-alias.yml',
+      ['permissions:', '  contents: *写'].join('\n'),
+    ).includes('workflow_yaml_alias_forbidden'),
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/query-parameter.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        'jobs:',
+        '  test:',
+        '    steps:',
+        '      - run: curl "https://example.test/?a=1&b=2"',
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
 });
 
 test('does not reject the read-only admission workflow', () => {
@@ -109,6 +147,24 @@ test('does not reject the read-only admission workflow', () => {
   assert.deepEqual(
     scanWorkflowText('.github/workflows/release.yml', text),
     [],
+  );
+});
+
+test('requires release permissions at workflow level', () => {
+  const jobOnly = [
+    'jobs:',
+    '  admission:',
+    '    permissions:',
+    '      contents: read',
+    '      actions: read',
+    '    steps:',
+    '      - run: echo safe',
+  ].join('\n');
+
+  assert.ok(
+    scanWorkflowText('.github/workflows/release.yml', jobOnly).includes(
+      'workflow_permissions_missing_or_not_readonly',
+    ),
   );
 });
 
