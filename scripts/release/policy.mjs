@@ -337,7 +337,17 @@ function yamlQuoteStartsAtNode(line, index, flowDepth = 0) {
   const prefix = line.slice(0, index);
   const previous = prefix.match(/\S(?=\s*$)/)?.[0];
   if (!previous) return true;
-  if (':?[{'.includes(previous)) return true;
+  if (':[{'.includes(previous)) return true;
+  if (previous === '?') {
+    const questionIndex = prefix.lastIndexOf('?');
+    const beforeQuestion = prefix.slice(0, questionIndex).match(/\S(?=\s*$)/)?.[0];
+    if (!beforeQuestion || ':,[{'.includes(beforeQuestion)) return true;
+    if (beforeQuestion === '-') {
+      const dashIndex = prefix.slice(0, questionIndex).lastIndexOf('-');
+      if (/^\s*$/.test(prefix.slice(0, dashIndex))) return true;
+    }
+    return false;
+  }
   if (previous === ',') {
     if (flowDepth > 0) return true;
   }
@@ -346,7 +356,15 @@ function yamlQuoteStartsAtNode(line, index, flowDepth = 0) {
     if (/^\s*$/.test(prefix.slice(0, dashIndex))) return true;
   }
   const token = prefix.trim().split(/\s+/).at(-1);
-  return /^(?:!{1,2}(?:\S+)?|&\S+)$/.test(token ?? '');
+  if (!/^(?:!{1,2}(?:\S+)?|&\S+)$/.test(token ?? '')) return false;
+  const tokenStart = prefix.lastIndexOf(token);
+  const beforeToken = prefix.slice(0, tokenStart).match(/\S(?=\s*$)/)?.[0];
+  if (!beforeToken || ':,[{?'.includes(beforeToken)) return true;
+  if (beforeToken === '-') {
+    const dashIndex = prefix.slice(0, tokenStart).lastIndexOf('-');
+    return /^\s*$/.test(prefix.slice(0, dashIndex));
+  }
+  return false;
 }
 
 function yamlStructuralLine(line, initialFlowDepth = 0) {
