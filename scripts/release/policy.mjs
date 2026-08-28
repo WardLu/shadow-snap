@@ -456,10 +456,13 @@ function yamlQuoteCloseIndex(line, quote) {
 
 function isBlockPlainScalar(structuralText, flowDepth) {
   if (flowDepth !== 0) return false;
-  const match = /^\s*(?:-\s+)?[^:#\n]+:\s+(.+)$/.exec(structuralText);
-  if (!match) return false;
-  const value = match[1].trim();
+  const mapping = /^\s*[^:#\n]+:\s+(.+)$/.exec(structuralText);
+  const sequence = /^\s*-\s+(.+)$/.exec(structuralText);
+  const sequenceValue = sequence?.[1]?.trim() ?? '';
+  const value = (sequence ? sequenceValue : mapping?.[1] ?? '').trim();
+  if (!mapping && !sequence) return false;
   if (!value) return false;
+  if (sequence && /^[^:#\n]+:(?:\s|$)/.test(sequenceValue)) return false;
   return !/^[|>\[\]{},!?*&'"`]/.test(value);
 }
 

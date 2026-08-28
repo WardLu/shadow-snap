@@ -120,6 +120,21 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
   );
   assert.ok(
     scanWorkflowText(
+      '.github/workflows/sequence-mapping-alias.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs:',
+        '  test:',
+        '    steps:',
+        '      - name: Demo',
+        '        env: &shared {FOO: bar}',
+        '        uses: actions/checkout@v4',
+        '        with: *shared',
+      ].join('\n'),
+    ).includes('workflow_yaml_alias_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
       '.github/workflows/quoted-permission-key.yml',
       ['permissions: {"contents": write}'].join('\n'),
     ).includes('workflow_permission_write_forbidden'),
@@ -604,6 +619,23 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
         'env:',
         '  MESSAGE: hello',
         '    "world',
+        'jobs:',
+        '  deploy:',
+        '    permissions: {contents: write}',
+        '    steps: []',
+      ].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/multiline-sequence-plain-quote-permissions-key.yml',
+      [
+        'permissions: {contents: read, actions: read}',
+        'on:',
+        '  push:',
+        '    branches:',
+        '      - hello',
+        '        "world',
         'jobs:',
         '  deploy:',
         '    permissions: {contents: write}',
