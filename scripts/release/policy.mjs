@@ -330,6 +330,51 @@ function stripYamlComment(line) {
   return line;
 }
 
+function yamlStructuralLine(line) {
+  let result = '';
+  let escapedKey = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character !== '"' && character !== "'") {
+      if (character === '#') break;
+      result += character;
+      continue;
+    }
+
+    const quote = character;
+    const start = index;
+    let content = '';
+    let closed = false;
+    for (index += 1; index < line.length; index += 1) {
+      const current = line[index];
+      if (quote === '"' && current === '\\' && index + 1 < line.length) {
+        content += current + line[index + 1];
+        index += 1;
+        continue;
+      }
+      if (quote === "'" && current === "'" && line[index + 1] === "'") {
+        content += "''";
+        index += 1;
+        continue;
+      }
+      if (current === quote) {
+        closed = true;
+        break;
+      }
+      content += current;
+    }
+    const afterQuote = closed ? line.slice(index + 1) : '';
+    const isKey = closed && /^\s*:/.test(afterQuote);
+    if (isKey) {
+      result += content;
+      if (content.includes('\\')) escapedKey = true;
+    } else {
+      result += ' '.repeat(Math.max(1, (closed ? index : line.length) - start + 1));
+    }
+  }
+  return { text: result, escapedKey };
+}
+
 function extractPermissionBlocks(text) {
   const lines = text.split(/\r?\n/);
   const blocks = [];
@@ -432,8 +477,10 @@ function hasUnsupportedPermissionStructure(text) {
       blockScalarIndent = indent;
       continue;
     }
-    if (/^\s*(?:-\s*)?run\s*:/i.test(sanitized)) continue;
+    const structural = yamlStructuralLine(line);
+    if (/^\s*-\s*run\s*:/i.test(structural.text)) continue;
     const uncommented = stripYamlComment(line);
+    if (structural.escapedKey) return true;
     if (
       /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*(?:permissions|["']permissions["'])\s*:?\s*$/i.test(
         uncommented,
@@ -449,8 +496,8 @@ function hasUnsupportedPermissionStructure(text) {
       return true;
     }
     if (
-      /[{,]\s*(?:(?:!{1,2}\S+|&\S+)\s+)*(?:permissions|["']permissions["']|["'][^"'\n]*\\[^"'\n]*["'])\s*:/.test(
-        uncommented,
+      /[{,]\s*(?:(?:!{1,2}\S+|&\S+)\s+)*permissions\s*:/.test(
+        structural.text,
       )
     ) {
       return true;
