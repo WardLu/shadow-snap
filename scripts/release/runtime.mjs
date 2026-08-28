@@ -924,6 +924,11 @@ function intentForOperation(snapshot, operation) {
     .find(({ value }) => value.state === `${operation}_intent`)?.value ?? null;
 }
 
+function snapshotLastEvidenceDigest({ evidence, decodedAssets }) {
+  if (!evidence || !Array.isArray(decodedAssets)) return null;
+  return decodedAssets.find(({ value }) => value === evidence)?.digest ?? null;
+}
+
 function expectedStableCurrent(snapshot, state = snapshot.state) {
   if (['initialize_intent', 'initialized', 'initialized_expired'].includes(state)) {
     return intentForOperation(snapshot, 'initialize')?.expectedCurrentDeploymentId ?? null;
@@ -1125,6 +1130,10 @@ async function readReleaseSnapshot({
     clock(),
   );
   if (derived.state === 'drift_freeze') fail(derived.reasonCode);
+  const lastEvidenceDigest = snapshotLastEvidenceDigest({
+    evidence: derived.lastEvidence,
+    decodedAssets,
+  });
   return {
     repository,
     release,
@@ -1135,6 +1144,7 @@ async function readReleaseSnapshot({
     state: derived.state,
     configHash: admission.configHash,
     lastEvidenceCreatedAt: derived.lastEvidence?.createdAt ?? release.published_at,
+    lastEvidenceDigest,
   };
 }
 
@@ -1892,6 +1902,12 @@ async function readOperationFacts({
         digest === requestedIntent,
     );
     if (!found) fail('resume_intent_not_found');
+    if (
+      snapshot.state !== found.value.state ||
+      snapshot.lastEvidenceDigest !== found.digest
+    ) {
+      fail('resume_intent_not_authoritative');
+    }
     const underlying = found.value.operation;
     let matchingDeployments = [];
     let resumeDeployment = null;

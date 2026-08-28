@@ -261,6 +261,7 @@ test('transition table rejects bypassing separate release phases', () => {
 test('initialize resume either continues the same write or finalizes it', () => {
   const intent = {
     operation: 'initialize',
+    state: 'initialize_intent',
     repository: 'WardLu/shadow-snap',
     tag: 'v1.2.3',
     targetSha: '2'.repeat(40),
@@ -275,6 +276,7 @@ test('initialize resume either continues the same write or finalizes it', () => 
         tag: intent.tag,
         targetSha: intent.targetSha,
         configHash: intent.configHash,
+        state: intent.state,
         productionSha: null,
       },
     }),
@@ -288,6 +290,7 @@ test('initialize resume either continues the same write or finalizes it', () => 
         tag: intent.tag,
         targetSha: intent.targetSha,
         configHash: intent.configHash,
+        state: intent.state,
         productionSha: intent.targetSha,
       },
     }),
@@ -298,6 +301,7 @@ test('initialize resume either continues the same write or finalizes it', () => 
 test('stage resume preserves build/deploy and completion crash windows', () => {
   const intent = {
     operation: 'stage',
+    state: 'stage_intent',
     repository: 'WardLu/shadow-snap',
     tag: 'v1.2.3',
     oldSha: '1'.repeat(40),
@@ -311,6 +315,7 @@ test('stage resume preserves build/deploy and completion crash windows', () => {
     tag: intent.tag,
     targetSha: intent.targetSha,
     configHash: intent.configHash,
+    state: intent.state,
     currentDeploymentId: 'dpl_old',
   };
   assert.deepEqual(
@@ -347,6 +352,7 @@ test('stage resume preserves build/deploy and completion crash windows', () => {
 test('promote and rollback resume never change deployment targets', () => {
   const promote = {
     operation: 'promote',
+    state: 'promote_intent',
     repository: 'WardLu/shadow-snap',
     tag: 'v1.2.3',
     targetSha: '2'.repeat(40),
@@ -360,6 +366,7 @@ test('promote and rollback resume never change deployment targets', () => {
     tag: promote.tag,
     targetSha: promote.targetSha,
     configHash: promote.configHash,
+    state: promote.state,
   };
   assert.equal(
     reconcileIntent({
@@ -375,25 +382,34 @@ test('promote and rollback resume never change deployment targets', () => {
     }).evidenceType,
     'production_acceptance',
   );
+  assert.equal(
+    reconcileIntent({
+      intent: promote,
+      facts: { ...base, currentDeploymentId: 'dpl_old', state: 'rolled_back' },
+    }).reasonCode,
+    'resume_intent_not_authoritative',
+  );
 
   const rollback = {
     ...promote,
     operation: 'rollback',
+    state: 'rollback_intent',
     currentDeploymentId: 'dpl_new',
     targetDeploymentId: 'dpl_old',
     nonce: 'nonce-rollback',
   };
+  const rollbackFacts = { ...base, state: rollback.state };
   assert.equal(
     reconcileIntent({
       intent: rollback,
-      facts: { ...base, currentDeploymentId: 'dpl_old', settingsMatch: false },
+      facts: { ...rollbackFacts, currentDeploymentId: 'dpl_old', settingsMatch: false },
     }).nextStep,
     'restore_vercel_settings',
   );
   assert.equal(
     reconcileIntent({
       intent: rollback,
-      facts: { ...base, currentDeploymentId: 'dpl_old', settingsMatch: true },
+      facts: { ...rollbackFacts, currentDeploymentId: 'dpl_old', settingsMatch: true },
     }).evidenceType,
     'rolled_back',
   );
@@ -408,13 +424,16 @@ test('renew and fail intents only append evidence for the same expired release',
   };
   assert.deepEqual(
     reconcileIntent({
-      intent: { ...facts, operation: 'renew', renewState: 'staged_pending_promote' },
-      facts,
+      intent: { ...facts, operation: 'renew', state: 'renew_intent', renewState: 'staged_pending_promote' },
+      facts: { ...facts, state: 'renew_intent' },
     }),
     { action: 'continue_external_write', nextStep: 'renew_evidence' },
   );
   assert.deepEqual(
-    reconcileIntent({ intent: { ...facts, operation: 'fail' }, facts }),
+    reconcileIntent({
+      intent: { ...facts, operation: 'fail', state: 'fail_intent' },
+      facts: { ...facts, state: 'fail_intent' },
+    }),
     { action: 'continue_external_write', nextStep: 'record_stage_failed' },
   );
 });

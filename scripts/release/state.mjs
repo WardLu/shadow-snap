@@ -128,6 +128,7 @@ export function reconcileIntent({ intent, facts }) {
   }
   const mismatch = assertIntentFacts(intent, facts);
   if (mismatch) return freeze(mismatch);
+  if (facts.state !== intent.state) return freeze('resume_intent_not_authoritative');
 
   if (intent.operation === 'initialize') {
     if (facts.productionSha === null || facts.productionSha === undefined) {
