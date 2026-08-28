@@ -135,6 +135,37 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
   );
   assert.ok(
     scanWorkflowText(
+      '.github/workflows/tagged-multiline-plain-scalar.yml',
+      [
+        'permissions: {contents: read}',
+        'env:',
+        '  MESSAGE: !!str hello',
+        '    "world',
+        'jobs:',
+        '  deploy:',
+        '    permissions: {contents: write}',
+        '    steps: []',
+      ].join('\n'),
+    ).includes('workflow_yaml_tag_forbidden'),
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/tag-like-text.yml',
+      [
+        'permissions: {contents: read}',
+        'jobs:',
+        '  test:',
+        '    steps:',
+        '      - name: Demo',
+        '        run: echo !not-a-tag',
+        '        env: {MESSAGE: "literal !not-a-tag"}',
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
+  assert.ok(
+    scanWorkflowText(
       '.github/workflows/quoted-permission-key.yml',
       ['permissions: {"contents": write}'].join('\n'),
     ).includes('workflow_permission_write_forbidden'),

@@ -380,6 +380,13 @@ function yamlStructuralLine(line, initialFlowDepth = 0) {
   let escapedKey = false;
   let flowDepth = initialFlowDepth;
   let quoteState = null;
+  const flowDepthAt = [];
+  const append = (value) => {
+    result += value;
+    for (let index = 0; index < value.length; index += 1) {
+      flowDepthAt.push(flowDepth);
+    }
+  };
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index];
     if (character !== '"' && character !== "'") {
@@ -392,12 +399,12 @@ function yamlStructuralLine(line, initialFlowDepth = 0) {
       ) {
         flowDepth += 1;
       }
-      result += character;
+      append(character);
       continue;
     }
 
     if (!yamlQuoteStartsAtNode(line, index, flowDepth)) {
-      result += character;
+      append(character);
       continue;
     }
     const quote = character;
@@ -425,14 +432,14 @@ function yamlStructuralLine(line, initialFlowDepth = 0) {
     const afterQuote = closed ? line.slice(index + 1) : '';
     const isKey = closed && /^\s*:/.test(afterQuote);
     if (isKey) {
-      result += content;
+      append(content);
       if (content.includes('\\')) escapedKey = true;
     } else {
-      result += ' '.repeat(Math.max(1, (closed ? index : line.length) - start + 1));
+      append(' '.repeat(Math.max(1, (closed ? index : line.length) - start + 1)));
       if (!closed) quoteState = quote;
     }
   }
-  return { text: result, escapedKey, flowDepth, quoteState };
+  return { text: result, escapedKey, flowDepth, quoteState, flowDepthAt };
 }
 
 function yamlQuoteCloseIndex(line, quote) {
@@ -511,6 +518,7 @@ function scanYamlLines(text) {
       text: structural.text,
       indent: sourceIndent,
       flowDepthBefore,
+      flowDepthAt: structural.flowDepthAt,
       escapedKey: structural.escapedKey,
       skipped,
     });
@@ -525,6 +533,41 @@ function scanYamlLines(text) {
     flowDepth = structural.flowDepth;
   }
   return lines;
+}
+
+function yamlNodeStartsAt(line, index) {
+  const prefix = line.text.slice(0, index);
+  const previous = prefix.match(/\S(?=\s*$)/)?.[0];
+  const flowDepth = line.flowDepthAt?.[index] ?? line.flowDepthBefore ?? 0;
+  if (!previous) return true;
+  if (previous === ':') {
+    const colonIndex = prefix.lastIndexOf(':');
+    return /\s/.test(prefix.slice(colonIndex + 1)) || flowDepth > 0;
+  }
+  if (previous === '{' || previous === '[') return flowDepth > 0;
+  if (previous === ',') return flowDepth > 0;
+  if (previous === '-') {
+    const dashIndex = prefix.lastIndexOf('-');
+    return /^\s*$/.test(prefix.slice(0, dashIndex));
+  }
+  if (previous === '?') {
+    const questionIndex = prefix.lastIndexOf('?');
+    const beforeQuestion = prefix.slice(0, questionIndex).match(/\S(?=\s*$)/)?.[0];
+    if (!beforeQuestion) return true;
+    if (beforeQuestion === ':') {
+      const colonIndex = prefix.slice(0, questionIndex).lastIndexOf(':');
+      if (/\s/.test(prefix.slice(colonIndex + 1, questionIndex))) return true;
+    }
+    if (beforeQuestion === '-') {
+      const dashIndex = prefix.slice(0, questionIndex).lastIndexOf('-');
+      if (/^\s*$/.test(prefix.slice(0, dashIndex))) return true;
+    }
+    return flowDepth > 0 && '[{,'.includes(beforeQuestion);
+  }
+  const token = prefix.trim().split(/\s+/).at(-1);
+  if (!/^(?:!{1,2}(?:\S+)?|&\S+)$/.test(token ?? '')) return false;
+  const tokenStart = prefix.lastIndexOf(token);
+  return yamlNodeStartsAt(line, tokenStart);
 }
 
 function extractPermissionBlocks(text) {
@@ -590,6 +633,17 @@ function hasYamlAnchorOrAlias(text) {
       const following = line.text[index + 1];
       if (!following || /\s|[\[\]{},]/.test(following)) continue;
       return true;
+    }
+  }
+  return false;
+}
+
+function hasYamlTag(text) {
+  for (const line of scanYamlLines(text)) {
+    if (line.skipped) continue;
+    for (let index = 0; index < line.text.length; index += 1) {
+      if (line.text[index] !== '!') continue;
+      if (yamlNodeStartsAt(line, index)) return true;
     }
   }
   return false;
@@ -739,6 +793,9 @@ export function scanWorkflowText(
   if (npmParse.invalidOption) findings.push('workflow_npm_option_forbidden');
   if (hasYamlAnchorOrAlias(text)) {
     findings.push('workflow_yaml_alias_forbidden');
+  }
+  if (hasYamlTag(text)) {
+    findings.push('workflow_yaml_tag_forbidden');
   }
   if (hasUnsupportedPermissionStructure(text)) {
     findings.push('workflow_permission_structure_forbidden');
