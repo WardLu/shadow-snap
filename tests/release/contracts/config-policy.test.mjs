@@ -164,6 +164,21 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
     ),
     [],
   );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/quoted-symbols.yml',
+      [
+        'permissions: {contents: read}',
+        'env:',
+        '  "!not-a-tag": "&not-an-anchor *not-an-alias"',
+        'jobs:',
+        '  test:',
+        '    steps: []',
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
   assert.ok(
     scanWorkflowText(
       '.github/workflows/quoted-permission-key.yml',

@@ -381,10 +381,12 @@ function yamlStructuralLine(line, initialFlowDepth = 0) {
   let flowDepth = initialFlowDepth;
   let quoteState = null;
   const flowDepthAt = [];
-  const append = (value) => {
+  const quotedAt = [];
+  const append = (value, quoted = false) => {
     result += value;
     for (let index = 0; index < value.length; index += 1) {
       flowDepthAt.push(flowDepth);
+      quotedAt.push(quoted);
     }
   };
   for (let index = 0; index < line.length; index += 1) {
@@ -432,14 +434,14 @@ function yamlStructuralLine(line, initialFlowDepth = 0) {
     const afterQuote = closed ? line.slice(index + 1) : '';
     const isKey = closed && /^\s*:/.test(afterQuote);
     if (isKey) {
-      append(content);
+      append(content, true);
       if (content.includes('\\')) escapedKey = true;
     } else {
-      append(' '.repeat(Math.max(1, (closed ? index : line.length) - start + 1)));
+      append(' '.repeat(Math.max(1, (closed ? index : line.length) - start + 1)), true);
       if (!closed) quoteState = quote;
     }
   }
-  return { text: result, escapedKey, flowDepth, quoteState, flowDepthAt };
+  return { text: result, escapedKey, flowDepth, quoteState, flowDepthAt, quotedAt };
 }
 
 function yamlQuoteCloseIndex(line, quote) {
@@ -519,6 +521,7 @@ function scanYamlLines(text) {
       indent: sourceIndent,
       flowDepthBefore,
       flowDepthAt: structural.flowDepthAt,
+      quotedAt: structural.quotedAt,
       escapedKey: structural.escapedKey,
       skipped,
     });
@@ -624,6 +627,7 @@ function hasYamlAnchorOrAlias(text) {
     if (line.skipped) continue;
     for (let index = 0; index < line.text.length; index += 1) {
       if (line.text[index] !== '&' && line.text[index] !== '*') continue;
+      if (line.quotedAt?.[index]) continue;
       const previous = line.text.slice(0, index).match(/\S(?=\s*$)/)?.[0];
       if (previous && !':,[{?'.includes(previous)) {
         if (previous !== '-') continue;
@@ -643,6 +647,7 @@ function hasYamlTag(text) {
     if (line.skipped) continue;
     for (let index = 0; index < line.text.length; index += 1) {
       if (line.text[index] !== '!') continue;
+      if (line.quotedAt?.[index]) continue;
       if (yamlNodeStartsAt(line, index)) return true;
     }
   }
