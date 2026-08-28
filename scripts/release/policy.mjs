@@ -482,8 +482,8 @@ function hasUnsupportedPermissionStructure(text) {
       if (sanitized.trim() === '' || indent > stepsIndent) continue;
       stepsIndent = null;
     }
-    const steps = /^(\s*)steps\s*:/i.exec(sanitized);
-    if (steps) {
+    const steps = /^(\s*)steps\s*:(.*)$/i.exec(sanitized);
+    if (steps && steps[2].trim() === '') {
       stepsIndent = steps[1].length;
       continue;
     }
