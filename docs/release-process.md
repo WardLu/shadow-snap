@@ -46,7 +46,7 @@ Controller 固定使用 Vercel CLI `50.28.0`。Admission 在准确 tag SHA 的�
 
 `npm run release:install` 将仓库绑定到当前真实 checkout、Git common dir 和主机级 registry，并自检普通 ref 放行、无 capability 的 `production` 推送拒绝。同一台主机上的第二个 clone 或 worktree 不能接管同一仓库。macOS registry 默认位于 `~/Library/Application Support/Shadow Release Controller/registry.json`，权限为 `0600`。
 
-进程在 intent 后崩溃时，Resume 只能继续同一 intent：Initialize ref 已创建则只补 completion；Stage ref 已推进但没有 deployment 则继续同一 build/deploy；已有唯一匹配 deployment 则只补 completion；Promote/Rollback 已发生则核对 Current 和设置后补证据。多个 deployment 候选、目标变化或未知状态一律 freeze。
+进程在 intent 后崩溃时，Resume 只能继续当前 evidence chain 最后一条 authoritative intent：请求 digest 必须等于该 intent 的 digest，已完成、被 rollback 或被 recovery supersede 的历史 intent 一律拒绝。Initialize ref 已创建则只补 completion；Stage ref 已推进但没有 deployment 则继续同一 build/deploy；已有唯一匹配 deployment 则只补 completion；Promote/Rollback 已发生则核对 Current 和设置后补证据。多个 deployment 候选、目标变化或未知状态一律 freeze。
 
 `initialized_expired` 和 `staged_expired` 不允许直接 Stage 或 Promote。`release:renew` 需要新的两步授权：initialized 只追加同一 tag/SHA 的续期 evidence；staged 还会重新检查同一 deployment 并再次运行 staged HTTP 验收，不能更换 deployment。若明确放弃过期 staged deployment，`release:fail` 通过独立授权写入 `stage_failed`。`stage_failed`、未完成的 `stage_intent` 或 `rolled_back` 则必须由一个新的已 Admission Release，用旧 Release 当前阻断 evidence 的准确 SHA-256 执行 Recover；Recover 只能解除一个明确阻断源。若进程崩溃留下过期本地 lease，`release:unlock` 先输出绑定 lease nonce/内容的授权摘要，确认后将原 lease 整体移动到 `stale-leases/` 留存，而不是删除取证。
 

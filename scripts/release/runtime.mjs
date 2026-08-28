@@ -929,6 +929,21 @@ function snapshotLastEvidenceDigest({ evidence, decodedAssets }) {
   return decodedAssets.find(({ value }) => value === evidence)?.digest ?? null;
 }
 
+export function assertResumeIntentAuthority({ snapshot, found }) {
+  if (
+    !snapshot ||
+    !found ||
+    typeof snapshot.state !== 'string' ||
+    typeof found.value?.state !== 'string' ||
+    snapshot.state !== found.value.state ||
+    !/^[0-9a-f]{64}$/.test(snapshot.lastEvidenceDigest ?? '') ||
+    snapshot.lastEvidenceDigest !== found.digest
+  ) {
+    fail('resume_intent_not_authoritative');
+  }
+  return true;
+}
+
 function expectedStableCurrent(snapshot, state = snapshot.state) {
   if (['initialize_intent', 'initialized', 'initialized_expired'].includes(state)) {
     return intentForOperation(snapshot, 'initialize')?.expectedCurrentDeploymentId ?? null;
@@ -1902,12 +1917,7 @@ async function readOperationFacts({
         digest === requestedIntent,
     );
     if (!found) fail('resume_intent_not_found');
-    if (
-      snapshot.state !== found.value.state ||
-      snapshot.lastEvidenceDigest !== found.digest
-    ) {
-      fail('resume_intent_not_authoritative');
-    }
+    assertResumeIntentAuthority({ snapshot, found });
     const underlying = found.value.operation;
     let matchingDeployments = [];
     let resumeDeployment = null;

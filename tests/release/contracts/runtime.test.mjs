@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { hashReleaseConfig, validateReleaseConfig } from '../../../scripts/release/config.mjs';
 import { installControllerBinding } from '../../../scripts/release/lock.mjs';
 import {
+  assertResumeIntentAuthority,
   createRuntime,
   validateReleaseChannel,
   verifyBillingFallback,
@@ -37,6 +38,35 @@ const ARTIFACT_MANIFEST = {
   entries: ARTIFACT_ENTRIES,
 };
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+test('resume accepts only the current authoritative intent digest', () => {
+  assert.throws(
+    () =>
+      assertResumeIntentAuthority({
+        snapshot: {
+          state: 'rolled_back',
+          lastEvidenceDigest: 'b'.repeat(64),
+        },
+        found: {
+          value: { state: 'promote_intent' },
+          digest: 'a'.repeat(64),
+        },
+      }),
+    /resume_intent_not_authoritative/,
+  );
+  assert.doesNotThrow(() =>
+    assertResumeIntentAuthority({
+      snapshot: {
+        state: 'promote_intent',
+        lastEvidenceDigest: 'a'.repeat(64),
+      },
+      found: {
+        value: { state: 'promote_intent' },
+        digest: 'a'.repeat(64),
+      },
+    }),
+  );
+});
 
 function releaseContract(config) {
   return {
