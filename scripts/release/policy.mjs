@@ -534,35 +534,35 @@ function hasUnsupportedPermissionStructure(text) {
     const structural = yamlStructuralLine(line);
     if (structural.escapedKey) return true;
     if (
-      /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*["'][^"']*\\\s*$/.test(
+      /^\s*\?\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*["'][^"']*\\\s*$/.test(
         uncommented,
       )
     ) {
       return true;
     }
     if (
-      /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*"[^"\n]*\\[^"\n]*"\s*$/.test(
+      /^\s*\?\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*"[^"\n]*\\[^"\n]*"\s*$/.test(
         uncommented,
       )
     ) {
       return true;
     }
     if (
-      /^\s*\?\s*(?:(?:!{1,2}\S+|&\S+)\s+)*(?:permissions|["']permissions["'])\s*:?\s*$/i.test(
+      /^\s*\?\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*(?:permissions|["']permissions["'])\s*:?\s*$/i.test(
         uncommented,
       )
     ) {
       return true;
     }
     if (
-      /^\s*(?:(?:!{1,2}\S+|&\S+)\s+)*"[^"\n]*\\[^"\n]*"\s*:/.test(
+      /^\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*"[^"\n]*\\[^"\n]*"\s*:/.test(
         uncommented,
       )
     ) {
       return true;
     }
     if (
-      /[{,]\s*(?:(?:!{1,2}\S+|&\S+)\s+)*permissions\s*:/.test(
+      /[{,]\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*permissions\s*:/.test(
         structural.text,
       )
     ) {
@@ -611,7 +611,7 @@ export function scanWorkflowText(
   );
   const permissionTag = permissionBlocks.some(
     ({ value, taggedKey }) =>
-      taggedKey || /(?:^|[\s,{])!{1,2}[^\s,{]+/.test(value),
+      taggedKey || /(?:^|[\s,{])!{1,2}(?:[^\s,{]+)?/.test(value),
   );
   if (
     permissionBlocks.some(({ value }) => /^\s*["']?(?:write-all|write)["']?(?:\s*#.*)?$/i.test(value)) ||
