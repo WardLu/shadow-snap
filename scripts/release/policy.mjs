@@ -480,6 +480,7 @@ function hasUnsupportedPermissionStructure(text) {
       blockScalarIndent = indent;
       continue;
     }
+    if (sanitized.trim() === '') continue;
     if (jobsIndent !== null && indent <= jobsIndent) {
       jobIndent = null;
       stepsIndent = null;
