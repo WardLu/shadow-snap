@@ -478,6 +478,22 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
   );
   assert.deepEqual(
     scanWorkflowText(
+      '.github/workflows/multiline-permission-like-strings.yml',
+      [
+        'permissions: {contents: read}',
+        'env:',
+        '  MESSAGE: "literal {? !!str',
+        '    next"',
+        'with:',
+        "  VALUE: 'literal ,? !",
+        "    next'",
+      ].join('\n'),
+      { requireExplicitPermissions: true },
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
       '.github/workflows/named-step-permission-like-string.yml',
       [
         'permissions: {contents: read}',

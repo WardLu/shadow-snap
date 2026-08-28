@@ -537,7 +537,7 @@ function hasUnsupportedPermissionStructure(text) {
       return true;
     }
     if (
-      /[{,]\s*\?(?:\s+(?:!{1,2}(?:\S+)?|&\S+))?\s*$/.test(uncommented)
+      /[{,]\s*\?(?:\s+(?:!{1,2}(?:\S+)?|&\S+))?\s*$/.test(structural.text)
     ) {
       return true;
     }
@@ -550,7 +550,7 @@ function hasUnsupportedPermissionStructure(text) {
     }
     if (
       /[{,]\s*\?\s*(?:(?:!{1,2}(?:\S+)?|&\S+)\s+)*["'][^"']*\\\s*$/.test(
-        uncommented,
+        structural.text,
       )
     ) {
       return true;
