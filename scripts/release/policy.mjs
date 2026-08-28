@@ -403,6 +403,25 @@ function yamlQuoteState(line, initialQuote = null) {
   return quote;
 }
 
+function yamlQuoteCloseIndex(line, quote) {
+  let escaped = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (quote === '"' && escaped) {
+      escaped = false;
+    } else if (quote === '"' && character === '\\') {
+      escaped = true;
+    } else if (quote === '"' && character === '"') {
+      return index;
+    } else if (quote === "'" && character === "'" && line[index + 1] === "'") {
+      index += 1;
+    } else if (quote === "'" && character === "'") {
+      return index;
+    }
+  }
+  return -1;
+}
+
 function extractPermissionBlocks(text) {
   const lines = text.split(/\r?\n/);
   const blocks = [];
@@ -498,19 +517,26 @@ function hasUnsupportedPermissionStructure(text) {
   let jobIndent = null;
   let stepsIndent = null;
   let multilineQuote = null;
-  for (const line of text.split(/\r?\n/)) {
-    const sanitized = stripYamlStringsAndComments(line);
-    const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
+  for (const sourceLine of text.split(/\r?\n/)) {
+    const sourceIndent = sourceLine.match(/^\s*/)?.[0].length ?? 0;
+    let line = sourceLine;
     if (blockScalarIndent !== null) {
-      if (sanitized.trim() === '' || indent > blockScalarIndent) continue;
+      const blockLine = stripYamlStringsAndComments(line);
+      const blockIndent = blockLine.match(/^\s*/)?.[0].length ?? 0;
+      if (blockLine.trim() === '' || blockIndent > blockScalarIndent) continue;
       blockScalarIndent = null;
     }
+    if (multilineQuote !== null) {
+      const closeIndex = yamlQuoteCloseIndex(line, multilineQuote);
+      if (closeIndex === -1) continue;
+      multilineQuote = null;
+      line = line.slice(closeIndex + 1);
+      if (line.trim() === '') continue;
+    }
+    const sanitized = stripYamlStringsAndComments(line);
+    const indent = sourceIndent;
     if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
       blockScalarIndent = indent;
-      continue;
-    }
-    if (multilineQuote !== null) {
-      multilineQuote = yamlQuoteState(line, multilineQuote);
       continue;
     }
     if (sanitized.trim() === '') continue;
