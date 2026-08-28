@@ -584,6 +584,23 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
   );
   assert.ok(
     scanWorkflowText(
+      '.github/workflows/plain-indicator-text-permissions-key.yml',
+      [
+        'permissions: {contents: read, actions: read}',
+        'env:',
+        '  HTTP: http:"world',
+        '  QUESTION: foo:? "world',
+        '  BRACKET: foo[? "world',
+        '  BRACE: foo{ "world',
+        'jobs:',
+        '  deploy:',
+        '    permissions: {contents: write}',
+        '    steps: []',
+      ].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
       '.github/workflows/multiline-flow-permissions-key.yml',
       [
         'permissions: {contents: read, actions: read}',

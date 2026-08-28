@@ -337,16 +337,20 @@ function yamlQuoteStartsAtNode(line, index, flowDepth = 0) {
   const prefix = line.slice(0, index);
   const previous = prefix.match(/\S(?=\s*$)/)?.[0];
   if (!previous) return true;
-  if (':[{'.includes(previous)) return true;
+  if (previous === ':') {
+    const colonIndex = prefix.lastIndexOf(':');
+    if (/\s/.test(prefix.slice(colonIndex + 1)) || flowDepth > 0) return true;
+    return false;
+  }
+  if (previous === '{' || previous === '[') return flowDepth > 0;
   if (previous === '?') {
     const questionIndex = prefix.lastIndexOf('?');
-    const beforeQuestion = prefix.slice(0, questionIndex).match(/\S(?=\s*$)/)?.[0];
-    if (!beforeQuestion || ':,[{'.includes(beforeQuestion)) return true;
-    if (beforeQuestion === '-') {
-      const dashIndex = prefix.slice(0, questionIndex).lastIndexOf('-');
-      if (/^\s*$/.test(prefix.slice(0, dashIndex))) return true;
-    }
-    return false;
+    const characterBeforeQuestion = prefix[questionIndex - 1];
+    return (
+      !characterBeforeQuestion ||
+      /\s/.test(characterBeforeQuestion) ||
+      (flowDepth > 0 && '[{,'.includes(characterBeforeQuestion))
+    );
   }
   if (previous === ',') {
     if (flowDepth > 0) return true;
