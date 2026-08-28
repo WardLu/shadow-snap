@@ -454,10 +454,20 @@ function yamlQuoteCloseIndex(line, quote) {
   return -1;
 }
 
+function isBlockPlainScalar(structuralText, flowDepth) {
+  if (flowDepth !== 0) return false;
+  const match = /^\s*(?:-\s+)?[^:#\n]+:\s+(.+)$/.exec(structuralText);
+  if (!match) return false;
+  const value = match[1].trim();
+  if (!value) return false;
+  return !/^[|>\[\]{},!?*&'"`]/.test(value);
+}
+
 function scanYamlLines(text) {
   const lines = [];
   let blockScalarIndent = null;
   let multilineQuote = null;
+  let plainScalarIndent = null;
   let flowDepth = 0;
   for (const sourceLine of text.split(/\r?\n/)) {
     const sourceIndent = sourceLine.match(/^\s*/)?.[0].length ?? 0;
@@ -469,6 +479,13 @@ function scanYamlLines(text) {
         continue;
       }
       blockScalarIndent = null;
+    }
+    if (plainScalarIndent !== null) {
+      if (sourceLine.trim() === '' || sourceIndent > plainScalarIndent) {
+        lines.push({ raw: sourceLine, text: '', indent: sourceIndent, skipped: true });
+        continue;
+      }
+      plainScalarIndent = null;
     }
     if (multilineQuote !== null) {
       const closeIndex = yamlQuoteCloseIndex(line, multilineQuote);
@@ -499,6 +516,9 @@ function scanYamlLines(text) {
       continue;
     }
     multilineQuote = structural.quoteState;
+    if (multilineQuote === null && isBlockPlainScalar(structural.text, structural.flowDepth)) {
+      plainScalarIndent = sourceIndent;
+    }
     flowDepth = structural.flowDepth;
   }
   return lines;
