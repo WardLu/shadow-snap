@@ -1,0 +1,38 @@
+name: Release admission
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要校验的 Shadow Snap Release tag，例如 v1.2.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Run read-only release admission
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: npm run release:admit -- --tag "$RELEASE_TAG" --hosted
+      - name: Upload admission evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-snap-release-admission-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          path: .release-state/${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}/release-admission.json
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "repository": "WardLu/shadow-snap",
+  "productionBranch": "production",
+  "tagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$",
+  "controller": {
+    "mode": "single-instance",
+    "instanceId": "595a8f4b-4bf1-4063-bb92-6b65c23f8e8e",
+    "authorizationTtlSeconds": 600,
+    "pendingTtlSeconds": 86400
+  },
+  "vercel": {
+    "cliVersion": "50.28.0",
+    "teamId": "team_yq83S2zZ3jAfc1JBRuU31M1I",
+    "projectId": "prj_xaFMwRtRpFr9K6tWtcnaDlZax8Ie",
+    "projectName": "shadow-snap",
+    "projectRoot": ".",
+    "rootDirectory": null,
+    "vercelJsonPath": "vercel.json",
+    "productionBranch": "production",
+    "autoAssignCustomDomains": false,
+    "productionDomains": [
+      "sie.shadow.wang",
+      "snap.shadow.wang"
+    ]
+  },
+  "acceptance": {
+    "path": "/",
+    "bodyIncludes": "<title data-i18n=\"page_title\">影瞬</title>",
+    "maxSeconds": 30,
+    "requiredHeaders": [
+      "content-type",
+      "strict-transport-security"
+    ]
+  },
+  "admissionCommands": [
+    [
+      "npm",
+      "ci"
+    ],
+    [
+      "npm",
+      "run",
+      "test:release-controller"
+    ],
+    [
+      "npm",
+      "run",
+      "validate:static"
+    ]
+  ]
+}

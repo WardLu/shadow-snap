@@ -40,10 +40,13 @@
   npx serve .
   ```
 
-## 🚀 部署（GitHub → Vercel）
-- 将仓库推送到 GitHub（本项目已配置）
-- 通过 Vercel 连接 GitHub 仓库，启用自动部署
-- 每次 push 到默认分支将自动触发构建与上线
+## 🚀 发布（Release → staged Production → Promote）
+- 所有 Vercel Git 自动部署已关闭，推送 `main`、PR 分支或 `production` 都不会自动部署。
+- `v*` tag 只运行只读 Admission；发布 GitHub Release、推进 `production`、创建 staged Production 和 Promote 分别授权。
+- 本地 Release Controller 只接受已发布 Release 的准确 commit，先使用 `--prod --skip-domain` 创建 staged deployment，验收后才可 Promote。
+- `.githooks/pre-push` 只保护指定本地 clone，可被其他 clone、GitHub UI/API 或 `--no-verify` 绕过，不能当作 GitHub protected branch。
+
+完整操作、恢复和授权边界见 [`docs/release-process.md`](docs/release-process.md)。
 
 > 如需 GitHub Pages 方案：将站点打包后放入 `gh-pages` 分支或配置 Pages 指向根目录/`docs` 目录（本项目为纯静态，无后端依赖）。
 
