@@ -265,5 +265,6 @@ export function createReleaseController({
     recover: (request) => execute('recover', request, { writeNewIntent: false }),
     renew: (request) => execute('renew', request),
     fail: (request) => execute('fail', request),
+    anchorAdmission: (request) => execute('anchor-admission', request, { writeNewIntent: false }),
   };
 }

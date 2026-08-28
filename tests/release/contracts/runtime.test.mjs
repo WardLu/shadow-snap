@@ -92,7 +92,7 @@ function hostedReceipt(config, admissionRaw) {
       name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
       sizeInBytes: 1,
       evidenceSha256: admissionDigest,
-      archiveDigest: null,
+      archiveDigest: `sha256:${'d'.repeat(64)}`,
       expired: false,
       workflowRunId: 123,
       createdAt: '2026-08-27T23:00:00.000Z',
@@ -231,6 +231,7 @@ function gitFactsRunner({ root, config, release } = {}) {
               name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
               expired: false,
               size_in_bytes: 1,
+              digest: `sha256:${'d'.repeat(64)}`,
               workflow_run: { id: 123 },
               created_at: '2026-08-27T23:00:00.000Z',
               expires_at: '2026-09-26T23:00:00.000Z',
@@ -655,18 +656,34 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
     runner,
     clock: () => new Date('2026-08-28T00:00:00.000Z'),
   });
-  const result = await runtime.controller['anchor-admission']({
+  const preview = await runtime.controller['anchor-admission']({
+    repoRoot: root,
+    config,
     tag: 'v1.2.3',
     assetId: 1,
   });
+  assert.equal(preview.status, 'authorization_required');
+  await installControllerBinding({
+    runner,
+    repoRoot: root,
+    config,
+    registryPath: path.join(root, 'host-registry.json'),
+  });
+  const result = await runtime.controller['anchor-admission']({
+    repoRoot: root,
+    config,
+    tag: 'v1.2.3',
+    assetId: 1,
+    authorize: preview.authorizationDigest,
+  });
   assert.equal(result.status, 'completed');
-  assert.equal(result.receiptIdentity.id, 2);
+  assert.equal(result.operationResult.receiptIdentity.id, 2);
   const receipt = JSON.parse(
     await readFile(path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'), 'utf8'),
   );
   assert.equal(receipt.kind, 'release-admission-receipt');
   assert.equal(receipt.artifact.id, 88);
-  assert.equal(receipt.artifact.evidenceSha256, result.identity.sha256);
+  assert.equal(receipt.artifact.evidenceSha256, preview.authorization.facts.admissionIdentity.sha256);
 });
 
 test('Billing fallback accepts only a failed zero-step run with a billing annotation', async () => {
@@ -814,6 +831,13 @@ test('Billing fallback rejects a billing run when another run for the same SHA e
       repoRoot: '/repo',
       repository: 'WardLu/shadow-snap',
       targetSha: TARGET_SHA,
+      expectedProof: {
+        workflowRunId: 45,
+        workflowRunAttempt: 1,
+        jobId: 55,
+        checkRunId: 66,
+        annotationSha256: 'a'.repeat(64),
+      },
     }),
     /billing_fallback_code_steps_started/,
   );

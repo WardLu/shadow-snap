@@ -419,6 +419,7 @@ async function verifyHostedRunProof({
         candidate.name === `shadow-snap-release-admission-${proof.tag}-${admissionDigest}` &&
         candidate.expired === false &&
         Number(candidate.size_in_bytes) > 0 &&
+        /^sha256:[0-9a-f]{64}$/.test(candidate.digest ?? '') &&
         candidate.workflow_run?.id === proof.runId,
     );
     if (!artifact) fail('hosted_admission_artifact_binding_mismatch');
@@ -487,9 +488,7 @@ export async function verifyBillingFallback({
     (run) =>
       run.head_sha === targetSha &&
       run.event === 'push' &&
-      run.path?.split('@')[0] === '.github/workflows/release.yml' &&
-      (!expectedProof || run.id === expectedProof.workflowRunId) &&
-      (!expectedProof || run.run_attempt === expectedProof.workflowRunAttempt),
+      run.path?.split('@')[0] === '.github/workflows/release.yml',
   );
   if (matchingRuns.some((run) => run.status === 'completed' && run.conclusion === 'success')) {
     fail('billing_fallback_not_needed');
@@ -530,6 +529,13 @@ export async function verifyBillingFallback({
 
   let billingCandidate = null;
   for (const { failedRun, runJobs } of failedRunJobs) {
+    if (
+      expectedProof &&
+      (failedRun.id !== expectedProof.workflowRunId ||
+        failedRun.run_attempt !== expectedProof.workflowRunAttempt)
+    ) {
+      continue;
+    }
     const failedJob = runJobs.find(
       (job) => job.name === 'admission' && job.conclusion === 'failure',
     );
@@ -690,8 +696,7 @@ function assertAdmissionReceipt({
       artifact.workflowRunId !== proof.runId ||
       artifact.expired !== false ||
       receipt.billingProof !== null ||
-      (artifact.archiveDigest !== null &&
-        (typeof artifact.archiveDigest !== 'string' || artifact.archiveDigest.length === 0))
+      !/^sha256:[0-9a-f]{64}$/.test(artifact.archiveDigest ?? '')
     ) {
       fail('hosted_admission_receipt_artifact_invalid');
     }
@@ -897,7 +902,8 @@ async function readReleaseSnapshot({
     release.tag_name !== tag ||
     release.draft !== false ||
     release.prerelease !== false ||
-    !release.published_at
+    !release.published_at ||
+    !Number.isFinite(Date.parse(release.published_at))
   ) {
     fail('release_not_published_stable');
   }
@@ -1371,6 +1377,111 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
   }
 }
 
+async function readAdmissionAnchorFacts({
+  runner,
+  repoRoot,
+  config,
+  tag,
+  assetId,
+}) {
+  const numericAssetId = Number(assetId);
+  if (!Number.isInteger(numericAssetId)) fail('admission_asset_id_invalid');
+  const { repository, release } = await getReleaseByTag({ runner, repoRoot, tag });
+  if (repository !== config.repository) fail('release_repository_mismatch');
+  if (
+    release.tag_name !== tag ||
+    release.draft !== false ||
+    release.prerelease !== false ||
+    !release.published_at ||
+    !Number.isFinite(Date.parse(release.published_at))
+  ) {
+    fail('release_not_published_stable');
+  }
+  const matches = release.assets.filter(
+    (asset) => asset.id === numericAssetId && asset.name === 'release-admission.json',
+  );
+  if (matches.length !== 1) fail('admission_asset_identity_not_found');
+  const anchored = await verifyReleaseAssetAnchor({
+    runner,
+    repoRoot,
+    repository,
+    tag,
+    asset: matches[0],
+    allowIdentityCreate: true,
+  });
+  const admission = anchored.value;
+  assertArtifactManifest(admission.artifactManifest);
+  if (!['hosted', 'billing-fallback'].includes(admission.mode)) {
+    fail('release_admission_mode_invalid');
+  }
+  if (
+    admission.repository !== config.repository ||
+    admission.tag !== tag ||
+    !/^[0-9a-f]{40}$/.test(admission.targetSha ?? '') ||
+    admission.configHash !== hashReleaseConfig(config) ||
+    canonicalJson(admission.releaseContract) !== canonicalJson(releaseContract(config))
+  ) {
+    fail('release_admission_binding_mismatch');
+  }
+  const receiptAssets = release.assets.filter(
+    (asset) => asset.name === ADMISSION_RECEIPT_ASSET,
+  );
+  if (receiptAssets.length > 1) fail('release_admission_receipt_ambiguous');
+  let receiptIdentity = null;
+  let provenance = null;
+  if (receiptAssets.length === 1) {
+    const existingReceipt = await verifyReleaseAssetAnchor({
+      runner,
+      repoRoot,
+      repository,
+      tag,
+      asset: receiptAssets[0],
+    });
+    assertAdmissionReceipt({
+      receipt: existingReceipt.value,
+      config,
+      tag,
+      admission,
+      admissionIdentity: anchored.identity,
+    });
+    receiptIdentity = existingReceipt.identity;
+  } else if (admission.mode === 'hosted') {
+    provenance = await verifyHostedRunProof({
+      runner,
+      repoRoot,
+      config,
+      targetSha: admission.targetSha,
+      proof: admission.hostedProof,
+      requireCompleted: true,
+      admissionDigest: anchored.digest,
+    });
+  } else {
+    provenance = assertBillingProofShape(
+      await verifyBillingFallback({
+        runner,
+        repoRoot,
+        repository,
+        targetSha: admission.targetSha,
+        expectedProof: admission.billingProof,
+      }),
+    );
+  }
+  return {
+    operation: 'anchor-admission',
+    repository,
+    tag,
+    assetId: numericAssetId,
+    targetSha: admission.targetSha,
+    mode: admission.mode,
+    admission,
+    admissionIdentity: anchored.identity,
+    admissionDigest: anchored.digest,
+    receiptIdentity,
+    provenance,
+    releasePublishedAt: release.published_at,
+  };
+}
+
 async function readOperationFacts({
   runner,
   repoRoot,
@@ -1378,9 +1489,19 @@ async function readOperationFacts({
   tag,
   operation,
   deployment,
+  assetId,
   intent: requestedIntent,
   clock,
 }) {
+  if (operation === 'anchor-admission') {
+    return readAdmissionAnchorFacts({
+      runner,
+      repoRoot,
+      config,
+      tag,
+      assetId,
+    });
+  }
   const target = await verifyTargetTree({ runner, repoRoot, tag, config });
   const vercelCliVersion = await verifyVercelCliVersion({ runner, repoRoot, config });
   const snapshot = await readReleaseSnapshot({ runner, repoRoot, config, tag, clock });
@@ -1769,12 +1890,28 @@ async function recheckIntentFacts({
   tag,
   operation,
   deployment,
+  assetId,
   requestedIntent,
   facts,
   intent,
   intentAsset,
   clock,
 }) {
+  if (operation === 'anchor-admission') {
+    const rechecked = await readOperationFacts({
+      runner,
+      repoRoot,
+      config,
+      tag,
+      operation,
+      assetId,
+      clock,
+    });
+    if (canonicalJson(rechecked) !== canonicalJson(facts)) {
+      fail('anchor_admission_facts_changed');
+    }
+    return;
+  }
   if (['resume', 'recover'].includes(operation)) {
     const rechecked = await readOperationFacts({
       runner,
@@ -1889,6 +2026,75 @@ async function pushProduction({
   if (verified !== newSha) fail('production_ref_verification_failed');
 }
 
+async function persistAdmissionReceipt({
+  runner,
+  repoRoot,
+  config,
+  tag,
+  facts,
+  clock,
+}) {
+  if (facts.receiptIdentity) {
+    return { receiptIdentity: facts.receiptIdentity, alreadyAnchored: true };
+  }
+  if (!facts.provenance) fail('anchor_admission_provenance_missing');
+  let receipt;
+  if (facts.mode === 'hosted') {
+    const { artifact, ...proof } = facts.provenance;
+    receipt = {
+      schemaVersion: 1,
+      kind: 'release-admission-receipt',
+      repository: facts.repository,
+      tag,
+      targetSha: facts.targetSha,
+      admissionAsset: facts.admissionIdentity,
+      mode: 'hosted',
+      hostedProof: proof,
+      billingProof: null,
+      artifact,
+      createdAt: clock().toISOString(),
+    };
+  } else if (facts.mode === 'billing-fallback') {
+    receipt = {
+      schemaVersion: 1,
+      kind: 'release-admission-receipt',
+      repository: facts.repository,
+      tag,
+      targetSha: facts.targetSha,
+      admissionAsset: facts.admissionIdentity,
+      mode: 'billing-fallback',
+      hostedProof: null,
+      billingProof: facts.provenance,
+      artifact: null,
+      createdAt: clock().toISOString(),
+    };
+  } else {
+    fail('release_admission_receipt_mode_invalid');
+  }
+  // Validate the complete receipt before creating any local or remote asset.
+  assertAdmissionReceipt({
+    receipt,
+    config,
+    tag,
+    admission: facts.admission,
+    admissionIdentity: facts.admissionIdentity,
+  });
+  const localReceipt = await writeLocalEvidence({
+    repoRoot,
+    tag,
+    fileName: ADMISSION_RECEIPT_ASSET,
+    value: receipt,
+  });
+  const receiptIdentity = await uploadAndAnchorReleaseAsset({
+    runner,
+    repoRoot,
+    config,
+    tag,
+    filePath: localReceipt.filePath,
+  });
+  return { receiptIdentity };
+}
+
 export async function createRuntime({
   repoRoot,
   runner = createCommandRunner(),
@@ -1934,6 +2140,16 @@ export async function createRuntime({
       return uploadAndAnchorReleaseAsset({ runner, repoRoot, config, tag, filePath: local.filePath });
     },
     runOperation: async ({ operation, tag, facts, intent }) => {
+      if (operation === 'anchor-admission') {
+        return persistAdmissionReceipt({
+          runner,
+          repoRoot,
+          config,
+          tag,
+          facts,
+          clock,
+        });
+      }
       if (operation === 'initialize') {
         await pushProduction({
           runner,
@@ -2331,6 +2547,7 @@ export async function createRuntime({
       fail('operation_execution_unknown');
     },
     writeCompletion: async ({ operation, tag, facts, intent, intentAsset, operationResult }) => {
+      if (operation === 'anchor-admission') return operationResult;
       const underlying = operation === 'resume' ? facts.intent.operation : operation;
       const state =
         operationResult.completionState ?? completionState(underlying);
@@ -2381,8 +2598,9 @@ export async function createRuntime({
       return uploadAndAnchorReleaseAsset({ runner, repoRoot, config, tag, filePath: local.filePath });
     },
   };
+  const releaseController = createReleaseController({ clock, nonce, operations });
   const controller = {
-    ...createReleaseController({ clock, nonce, operations }),
+    ...releaseController,
     unlock: (request) =>
       clearStaleReleaseLease({
         runner,
@@ -2392,130 +2610,7 @@ export async function createRuntime({
         authorize: request.authorize,
         now: clock(),
       }),
-    'anchor-admission': async (request) => {
-      const assetId = Number(request.assetId);
-      if (!Number.isInteger(assetId)) fail('admission_asset_id_invalid');
-      const { repository, release } = await getReleaseByTag({
-        runner,
-        repoRoot,
-        tag: request.tag,
-      });
-      if (repository !== config.repository) fail('release_repository_mismatch');
-      const matches = release.assets.filter(
-        (asset) => asset.id === assetId && asset.name === 'release-admission.json',
-      );
-      if (matches.length !== 1) fail('admission_asset_identity_not_found');
-      const anchored = await verifyReleaseAssetAnchor({
-        runner,
-        repoRoot,
-        repository,
-        tag: request.tag,
-        asset: matches[0],
-        allowIdentityCreate: true,
-      });
-      if (!['hosted', 'billing-fallback'].includes(anchored.value?.mode)) {
-        fail('release_admission_mode_invalid');
-      }
-      const receiptAssets = release.assets.filter(
-        (asset) => asset.name === ADMISSION_RECEIPT_ASSET,
-      );
-      if (receiptAssets.length > 1) fail('release_admission_receipt_ambiguous');
-      let receiptIdentity;
-      if (receiptAssets.length === 1) {
-        const existingReceipt = await verifyReleaseAssetAnchor({
-          runner,
-          repoRoot,
-          repository,
-          tag: request.tag,
-          asset: receiptAssets[0],
-        });
-        assertAdmissionReceipt({
-          receipt: existingReceipt.value,
-          config,
-          tag: request.tag,
-          admission: anchored.value,
-          admissionIdentity: anchored.identity,
-        });
-        receiptIdentity = existingReceipt.identity;
-      } else {
-        let receipt;
-        if (anchored.value.mode === 'hosted') {
-          const verified = await verifyHostedRunProof({
-            runner,
-            repoRoot,
-            config,
-            targetSha: anchored.value.targetSha,
-            proof: anchored.value.hostedProof,
-            requireCompleted: true,
-            admissionDigest: anchored.digest,
-          });
-          const { artifact, ...proof } = verified;
-          receipt = {
-            schemaVersion: 1,
-            kind: 'release-admission-receipt',
-            repository,
-            tag: request.tag,
-            targetSha: anchored.value.targetSha,
-            admissionAsset: anchored.identity,
-            mode: 'hosted',
-            hostedProof: proof,
-            billingProof: null,
-            artifact,
-            createdAt: clock().toISOString(),
-          };
-        } else {
-          const billingProof = assertBillingProofShape(
-            await verifyBillingFallback({
-              runner,
-              repoRoot,
-              repository,
-              targetSha: anchored.value.targetSha,
-              expectedProof: anchored.value.billingProof,
-            }),
-          );
-          receipt = {
-            schemaVersion: 1,
-            kind: 'release-admission-receipt',
-            repository,
-            tag: request.tag,
-            targetSha: anchored.value.targetSha,
-            admissionAsset: anchored.identity,
-            mode: 'billing-fallback',
-            hostedProof: null,
-            billingProof,
-            artifact: null,
-            createdAt: clock().toISOString(),
-          };
-        }
-        const localReceipt = await writeLocalEvidence({
-          repoRoot,
-          tag: request.tag,
-          fileName: ADMISSION_RECEIPT_ASSET,
-          value: receipt,
-        });
-        receiptIdentity = await uploadAndAnchorReleaseAsset({
-          runner,
-          repoRoot,
-          config,
-          tag: request.tag,
-          filePath: localReceipt.filePath,
-        });
-        assertAdmissionReceipt({
-          receipt,
-          config,
-          tag: request.tag,
-          admission: anchored.value,
-          admissionIdentity: anchored.identity,
-        });
-      }
-      return {
-        status: 'completed',
-        operation: 'anchor-admission',
-        tag: request.tag,
-        identity: anchored.identity,
-        receiptIdentity,
-      };
-    },
+    'anchor-admission': (request) => releaseController.anchorAdmission(request),
   };
   return { repoRoot, config, controller };
 }

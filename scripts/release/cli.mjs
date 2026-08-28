@@ -39,7 +39,7 @@ const COMMAND_SCHEMAS = new Map([
   ['audit', { allowed: new Set(['tag', 'localOnly']), required: new Set() }],
   ['unlock', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
   ['fail', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
-  ['anchor-admission', { allowed: new Set(['tag', 'assetId']), required: new Set(['tag', 'assetId']) }],
+  ['anchor-admission', { allowed: new Set(['tag', 'assetId', 'authorize']), required: new Set(['tag', 'assetId']) }],
 ]);
 
 function fail(reasonCode) {

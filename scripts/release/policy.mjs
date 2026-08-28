@@ -63,12 +63,39 @@ const EXACT_READ_ONLY_SCRIPT_COMMANDS = new Map([
 const NPM_OPTIONS_WITH_VALUE = new Set([
   '--prefix',
   '--workspace',
-  '--workspaces',
+  '--cache',
+  '--registry',
+  '--loglevel',
   '--userconfig',
   '--location',
+  '--audit-level',
+  '--omit',
+  '--include',
+  '--install-strategy',
   '-w',
   '-C',
+  '-p',
 ]);
+const NPM_OPTIONS_WITHOUT_VALUE = new Set([
+  '--silent',
+  '--quiet',
+  '--yes',
+  '--global',
+  '--if-present',
+  '--dry-run',
+  '--ignore-scripts',
+  '--no-audit',
+  '--no-fund',
+  '--no-bin-links',
+  '--package-lock-only',
+  '--workspaces',
+  '--include-workspace-root',
+  '--progress',
+  '--json',
+  '-s',
+  '-q',
+]);
+const LOCAL_SCRIPT_PATH = /(?:^|\s)(?:\.{1,2}\/|scripts\/|node_modules\/|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|[A-Za-z0-9_.-]+\.(?:mjs|cjs|js|ts|tsx|py|sh|bash|zsh|rb|pl|go))(?=\s|$)/i;
 function tokenizeShell(text) {
   const tokens = [];
   let value = '';
@@ -130,44 +157,65 @@ function isNpmOption(token) {
 
 function consumeNpmOptions(tokens, start) {
   let index = start;
+  let invalid = false;
   while (index < tokens.length) {
     const token = tokens[index]?.value;
     if (!isNpmOption(token) || token === '--') break;
     const equals = token.indexOf('=');
     if (equals !== -1) {
+      const option = token.slice(0, equals);
+      if (
+        !NPM_OPTIONS_WITH_VALUE.has(option) &&
+        !NPM_OPTIONS_WITHOUT_VALUE.has(option)
+      ) {
+        invalid = true;
+      }
       index += 1;
       continue;
     }
     if (NPM_OPTIONS_WITH_VALUE.has(token)) {
       index += 2;
+    } else if (NPM_OPTIONS_WITHOUT_VALUE.has(token)) {
+      index += 1;
     } else if ((token.startsWith('-w') || token.startsWith('-C')) && token.length > 2) {
       // npm accepts attached short option values such as `-wfoo` and `-C.`.
       index += 1;
-    } else {
+    } else if (token.startsWith('-p') && token.length > 2) {
       index += 1;
+    } else {
+      // Unknown option arity is intentionally fail-closed.  Do not let its
+      // value be mistaken for the npm subcommand or script name.
+      invalid = true;
+      index += 1;
+      if (index < tokens.length && !isNpmOption(tokens[index]?.value)) index += 1;
     }
   }
-  return index;
+  return { index, invalid };
 }
 
 function parseNpmInvocations(text) {
   const tokens = tokenizeShell(text);
   const invocations = [];
+  let invalidOption = false;
   for (let index = 0; index < tokens.length; index += 1) {
     if (tokens[index].value !== 'npm') continue;
-    let cursor = consumeNpmOptions(tokens, index + 1);
+    const globalOptions = consumeNpmOptions(tokens, index + 1);
+    invalidOption ||= globalOptions.invalid;
+    let cursor = globalOptions.index;
     if (tokens[cursor]?.value === '--') cursor += 1;
     const command = tokens[cursor]?.value;
     if (!['run', 'run-script', 'exec', 'x'].includes(command)) continue;
     cursor += 1;
-    cursor = consumeNpmOptions(tokens, cursor);
+    const commandOptions = consumeNpmOptions(tokens, cursor);
+    invalidOption ||= commandOptions.invalid;
+    cursor = commandOptions.index;
     const target = tokens[cursor] ?? null;
     invocations.push({
       kind: command === 'run' || command === 'run-script' ? 'run' : 'exec',
       target,
     });
   }
-  return invocations;
+  return { invocations, invalidOption };
 }
 
 function hasDynamicNpmInvocation(invocations) {
@@ -195,7 +243,9 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
     ({ reasonCode }) => reasonCode,
   );
   const normalized = text.replace(/\\\r?\n/g, ' ').replace(/\s+/g, ' ');
-  const npmInvocations = parseNpmInvocations(normalized);
+  const npmParse = parseNpmInvocations(normalized);
+  const npmInvocations = npmParse.invocations;
+  if (npmParse.invalidOption) findings.push('workflow_npm_option_forbidden');
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
@@ -252,14 +302,17 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
       if (
         /\$[A-Za-z_{(]/.test(command) ||
         /\b(?:node|npx|python\d*|bash|sh|zsh|fish|bun|deno|tsx|ts-node)\b/i.test(command) ||
-        /(?:^|\s)(?:\.\/|\.\.\/|scripts\/|node_modules\/\.bin\/)/i.test(command)
+        LOCAL_SCRIPT_PATH.test(command)
       ) {
         if (!hasReadOnlyScriptEntrypoint(name, command)) return true;
       }
-      const nested = parseNpmInvocations(command);
-      if (hasDynamicNpmInvocation(nested)) return true;
-      if (nested.some(({ kind }) => kind === 'exec')) return true;
-      return nested
+      const nestedParse = parseNpmInvocations(command);
+      if (
+        nestedParse.invalidOption ||
+        hasDynamicNpmInvocation(nestedParse.invocations)
+      ) return true;
+      if (nestedParse.invocations.some(({ kind }) => kind === 'exec')) return true;
+      return nestedParse.invocations
         .filter(({ kind }) => kind === 'run')
         .some(({ target }) => !target?.value || scriptWrites(target.value, depth + 1));
     };
