@@ -375,6 +375,34 @@ function yamlStructuralLine(line) {
   return { text: result, escapedKey };
 }
 
+function yamlQuoteState(line, initialQuote = null) {
+  let quote = initialQuote;
+  let escaped = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (quote) {
+      if (quote === '"' && escaped) {
+        escaped = false;
+      } else if (quote === '"' && character === '\\') {
+        escaped = true;
+      } else if (quote === '"' && character === '"') {
+        quote = null;
+      } else if (quote === "'" && character === "'" && line[index + 1] === "'") {
+        index += 1;
+      } else if (quote === "'" && character === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '#') break;
+  }
+  return quote;
+}
+
 function extractPermissionBlocks(text) {
   const lines = text.split(/\r?\n/);
   const blocks = [];
@@ -469,6 +497,7 @@ function hasUnsupportedPermissionStructure(text) {
   let jobsIndent = null;
   let jobIndent = null;
   let stepsIndent = null;
+  let multilineQuote = null;
   for (const line of text.split(/\r?\n/)) {
     const sanitized = stripYamlStringsAndComments(line);
     const indent = sanitized.match(/^\s*/)?.[0].length ?? 0;
@@ -478,6 +507,10 @@ function hasUnsupportedPermissionStructure(text) {
     }
     if (/:\s*[|>](?:[1-9][+-]?|[+-][1-9]?)?\s*$/.test(sanitized)) {
       blockScalarIndent = indent;
+      continue;
+    }
+    if (multilineQuote !== null) {
+      multilineQuote = yamlQuoteState(line, multilineQuote);
       continue;
     }
     if (sanitized.trim() === '') continue;
@@ -583,6 +616,7 @@ function hasUnsupportedPermissionStructure(text) {
     ) {
       return true;
     }
+    multilineQuote = yamlQuoteState(line);
   }
   return false;
 }
