@@ -51,6 +51,23 @@ function releaseContract(config) {
   };
 }
 
+function hostedProof(config) {
+  return {
+    tag: 'v1.2.3',
+    repository: config.repository,
+    runId: 123,
+    runAttempt: 1,
+    workflow: 'Release admission',
+    workflowRef: `${config.repository}/.github/workflows/release.yml@refs/tags/v1.2.3`,
+    event: 'push',
+    ref: 'refs/tags/v1.2.3',
+    refName: 'v1.2.3',
+    sha: TARGET_SHA,
+    status: 'completed',
+    conclusion: 'success',
+  };
+}
+
 async function tempRepository() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'shadow-runtime-'));
   await mkdir(path.join(root, 'config'), { recursive: true });
@@ -138,6 +155,23 @@ function gitFactsRunner({ root, config, release } = {}) {
       return { stdout: `Vercel CLI ${config.vercel.cliVersion}\n${config.vercel.cliVersion}\n`, exitCode: 0, stderrDigest: '0'.repeat(64) };
     }
     if (command === 'gh' && args[0] === 'api') {
+      if (args[1] === '/repos/WardLu/shadow-snap/actions/runs/123') {
+        return {
+          stdout: JSON.stringify({
+            id: 123,
+            run_attempt: 1,
+            head_sha: TARGET_SHA,
+            path: '.github/workflows/release.yml',
+            event: 'push',
+            ref: 'refs/tags/v1.2.3',
+            status: 'completed',
+            conclusion: 'success',
+            head_repository: { full_name: config.repository },
+          }),
+          exitCode: 0,
+          stderrDigest: '0'.repeat(64),
+        };
+      }
       if (args[1] === '/repos/WardLu/shadow-snap/releases?per_page=100') {
         return {
           stdout: JSON.stringify(release ? [release] : []),
@@ -163,6 +197,7 @@ function gitFactsRunner({ root, config, release } = {}) {
             workflowPaths: ['.github/workflows/release.yml'],
             artifactManifest: ARTIFACT_MANIFEST,
             releaseContract: releaseContract(config),
+            hostedProof: hostedProof(config),
             createdAt: '2026-08-27T23:00:00.000Z',
           }),
           exitCode: 0,
@@ -221,7 +256,18 @@ test('default Admission runs only committed local gates and writes evidence', as
   const runtime = await createRuntime({
     repoRoot: root,
     runner,
-    environment: { GITHUB_ACTIONS: 'true', GITHUB_RUN_ID: '123', GITHUB_WORKFLOW: 'Release admission' },
+    environment: {
+      GITHUB_ACTIONS: 'true',
+      GITHUB_REPOSITORY: config.repository,
+      GITHUB_RUN_ID: '123',
+      GITHUB_RUN_ATTEMPT: '1',
+      GITHUB_WORKFLOW: 'Release admission',
+      GITHUB_WORKFLOW_REF: `${config.repository}/.github/workflows/release.yml@refs/tags/v1.2.3`,
+      GITHUB_EVENT_NAME: 'push',
+      GITHUB_REF: 'refs/tags/v1.2.3',
+      GITHUB_REF_NAME: 'v1.2.3',
+      GITHUB_SHA: TARGET_SHA,
+    },
     clock: () => new Date('2026-08-28T00:00:00.000Z'),
   });
   const result = await runtime.controller.admit({
@@ -234,10 +280,8 @@ test('default Admission runs only committed local gates and writes evidence', as
   assert.equal(result.status, 'admission_ready');
   assert.equal(result.targetSha, TARGET_SHA);
   assert.equal(result.mode, 'hosted');
-  assert.equal(
-    commandResults.some(([command]) => command === 'gh' || command === 'vercel'),
-    false,
-  );
+  assert.equal(commandResults.some(([command]) => command === 'vercel'), false);
+  assert.equal(commandResults.some(([command]) => command === 'gh'), true);
   assert.doesNotReject(
     readFile(path.join(root, '.release-state/v1.2.3/release-admission.json')),
   );
@@ -278,6 +322,7 @@ test('default Initialize preview binds Release, ref, Vercel identity, and Curren
     workflowPaths: ['.github/workflows/release.yml'],
     artifactManifest: ARTIFACT_MANIFEST,
     releaseContract: releaseContract(config),
+    hostedProof: hostedProof(config),
     createdAt: '2026-08-27T23:00:00.000Z',
   };
   const admissionRaw = JSON.stringify(admission);
@@ -345,6 +390,7 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
     workflowPaths: ['.github/workflows/release.yml'],
     artifactManifest: ARTIFACT_MANIFEST,
     releaseContract: releaseContract(config),
+    hostedProof: hostedProof(config),
     createdAt: '2026-08-27T23:00:00.000Z',
   };
   const admissionRaw = JSON.stringify(admission);

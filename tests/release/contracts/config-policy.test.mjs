@@ -118,4 +118,34 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     scanWorkflowText('.github/workflows/release.yml', 'steps:\n  - run: npm run release:admit -- --tag v1.2.3 --hosted\n'),
     [],
   );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/alias.yml', 'steps:\n  - run: npm run "$RELEASE_COMMAND"\n'),
+    ['workflow_dynamic_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/vercel.yml', 'steps:\n  - run: npm exec vercel deploy --prod\n'),
+    ['workflow_vercel_production_write', 'workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/options.yml', 'steps:\n  - run: npm --prefix . run release:stage -- --tag v1.2.3\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/options2.yml', 'steps:\n  - run: npm run --silent release:stage -- --tag v1.2.3\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/options3.yml', 'steps:\n  - run: npm run-script release:stage -- --tag v1.2.3\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/alias2.yml', 'steps:\n  - run: "$TOOL" run "$SCRIPT"\n'),
+    ['workflow_dynamic_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/script-name.yml', 'steps:\n  - run: npm run go-live\n', {
+      scripts: { 'go-live': 'vercel --prod' },
+    }),
+    ['workflow_npm_script_write_forbidden'],
+  );
 });

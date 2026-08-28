@@ -89,6 +89,14 @@ export function parseCliArgs(argv) {
       fail(`cli_argument_required:${required}`);
     }
   }
+  if (result.command === 'audit') {
+    if (result.localOnly && result.tag !== undefined) {
+      fail('cli_argument_conflict:tag:local-only');
+    }
+    if (!result.localOnly && result.tag === undefined) {
+      fail('cli_argument_required:tag');
+    }
+  }
   return result;
 }
 

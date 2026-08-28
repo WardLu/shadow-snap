@@ -329,6 +329,91 @@ async function githubApiJson({ runner, repoRoot, endpoint, reasonCode }) {
   }
 }
 
+function hostedEnvironmentProof({ environment, config, tag, targetSha }) {
+  const required = {
+    repository: environment?.GITHUB_REPOSITORY,
+    runId: Number(environment?.GITHUB_RUN_ID),
+    runAttempt: Number(environment?.GITHUB_RUN_ATTEMPT),
+    workflow: environment?.GITHUB_WORKFLOW,
+    workflowRef: environment?.GITHUB_WORKFLOW_REF,
+    event: environment?.GITHUB_EVENT_NAME,
+    ref: environment?.GITHUB_REF,
+    refName: environment?.GITHUB_REF_NAME,
+    sha: environment?.GITHUB_SHA,
+  };
+  if (
+    environment?.GITHUB_ACTIONS !== 'true' ||
+    required.repository !== config.repository ||
+    !Number.isInteger(required.runId) ||
+    !Number.isInteger(required.runAttempt) ||
+    !required.workflow ||
+    !required.workflowRef ||
+    !['push', 'workflow_dispatch'].includes(required.event) ||
+    required.ref !== `refs/tags/${tag}` ||
+    required.refName !== tag ||
+    required.sha !== targetSha ||
+    !new RegExp(
+      `^${config.repository.replace('/', '\\/')}\\/.github\\/workflows\\/release\\.yml@`,
+    ).test(required.workflowRef)
+  ) {
+    fail('hosted_admission_context_invalid');
+  }
+  return { tag, ...required };
+}
+
+async function verifyHostedRunProof({
+  runner,
+  repoRoot,
+  config,
+  targetSha,
+  proof,
+  requireCompleted,
+}) {
+  if (
+    proof?.repository !== config.repository ||
+    !Number.isInteger(proof.runId) ||
+    !Number.isInteger(proof.runAttempt) ||
+    !['push', 'workflow_dispatch'].includes(proof.event) ||
+    proof.ref !== `refs/tags/${proof.tag}` ||
+    proof.refName !== proof.tag ||
+    proof.sha !== targetSha ||
+    typeof proof.workflowRef !== 'string' ||
+    !new RegExp(
+      `^${config.repository.replace('/', '\\/')}\\/.github\\/workflows\\/release\\.yml@`,
+    ).test(proof.workflowRef)
+  ) fail('hosted_admission_proof_invalid');
+  const run = await githubApiJson({
+    runner,
+    repoRoot,
+    endpoint: `/repos/${config.repository}/actions/runs/${proof.runId}`,
+    reasonCode: 'hosted_admission_run_json_invalid',
+  });
+  if (
+    run.id !== proof.runId ||
+    run.run_attempt !== proof.runAttempt ||
+    run.head_sha !== targetSha ||
+    run.path !== '.github/workflows/release.yml' ||
+    run.event !== proof.event ||
+    run.head_repository?.full_name !== config.repository ||
+    (proof.event === 'push' && run.ref !== proof.ref)
+  ) fail('hosted_admission_run_binding_mismatch');
+  if (requireCompleted && (run.status !== 'completed' || run.conclusion !== 'success')) {
+    fail('hosted_admission_run_not_successful');
+  }
+  return {
+    repository: config.repository,
+    runId: proof.runId,
+    runAttempt: proof.runAttempt,
+    event: proof.event,
+    ref: proof.ref,
+    refName: proof.refName,
+    sha: targetSha,
+    workflowRef: proof.workflowRef,
+    status: run.status,
+    conclusion: run.conclusion ?? null,
+  };
+}
+
 async function githubApiPaginatedArray({ runner, repoRoot, endpoint, reasonCode }) {
   const result = await runner('gh', ['api', endpoint, '--paginate', '--slurp'], {
     cwd: repoRoot,
@@ -637,6 +722,32 @@ async function readReleaseSnapshot({
   });
   const admission = admissionDocument.value;
   assertArtifactManifest(admission.artifactManifest);
+  if (!['hosted', 'billing-fallback'].includes(admission.mode)) {
+    fail('release_admission_mode_invalid');
+  }
+  if (
+    admission.mode === 'billing-fallback' &&
+    (!admission.billingProof ||
+      !Number.isInteger(admission.billingProof.workflowRunId) ||
+      !Number.isInteger(admission.billingProof.workflowRunAttempt) ||
+      !Number.isInteger(admission.billingProof.jobId) ||
+      !Number.isInteger(admission.billingProof.checkRunId) ||
+      !Number.isInteger(admission.billingProof.stepCount) ||
+      admission.billingProof.stepCount !== 0 ||
+      !/^[0-9a-f]{64}$/.test(admission.billingProof.annotationSha256 ?? ''))
+  ) {
+    fail('release_billing_proof_invalid');
+  }
+  if (admission.mode === 'hosted') {
+    await verifyHostedRunProof({
+      runner,
+      repoRoot,
+      config,
+      targetSha: admission.targetSha,
+      proof: admission.hostedProof,
+      requireCompleted: true,
+    });
+  }
   const contract = admission.releaseContract;
   if (
     !contract ||
@@ -765,6 +876,16 @@ async function runAdmission({
   ) {
     fail('hosted_admission_context_missing');
   }
+  const hostedProof = hosted
+    ? await verifyHostedRunProof({
+        runner,
+        repoRoot,
+        config,
+        targetSha: target.targetSha,
+        proof: hostedEnvironmentProof({ environment, config, tag, targetSha: target.targetSha }),
+        requireCompleted: false,
+      })
+    : null;
   if (hosted && billingFallback) fail('billing_fallback_hosted_conflict');
   const billingProof = billingFallback
     ? await verifyBillingFallback({
@@ -808,6 +929,7 @@ async function runAdmission({
     mainSnapshot: target.mainSha,
     configHash: hashReleaseConfig(config),
     mode: billingFallback ? 'billing-fallback' : hosted ? 'hosted' : 'local',
+    hostedProof,
     billingProof,
     commands: commandResults,
     workflowPaths: target.workflowPaths,

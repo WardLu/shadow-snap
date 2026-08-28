@@ -29,6 +29,19 @@ test('CLI parses only explicit release arguments', () => {
   assert.throws(() => parseCliArgs(['admit', '--tag', 'v1.2.3', '--authorize', 'a'.repeat(64)]), /cli_argument_forbidden/);
   assert.throws(() => parseCliArgs(['stage', '--tag', 'v1.2.3', '--local-only']), /cli_argument_forbidden/);
   assert.throws(() => parseCliArgs(['promote', '--tag', 'v1.2.3', '--asset-id', '42']), /cli_argument_forbidden/);
+  assert.throws(() => parseCliArgs(['audit', '--tag', 'v1.2.3', '--local-only']), /cli_argument_conflict/);
+  assert.throws(() => parseCliArgs(['audit']), /cli_argument_required:tag/);
+  assert.deepEqual(parseCliArgs(['audit', '--local-only']), {
+    command: 'audit',
+    tag: undefined,
+    authorize: undefined,
+    deployment: undefined,
+    hosted: false,
+    localOnly: true,
+    billingFallback: false,
+    intent: undefined,
+    assetId: undefined,
+  });
   assert.throws(() => parseCliArgs(['stage', '--yes']), /cli_argument_unknown/);
   assert.throws(() => parseCliArgs(['unknown']), /cli_command_unknown/);
   assert.throws(

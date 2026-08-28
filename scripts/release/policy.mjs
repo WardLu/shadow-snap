@@ -42,7 +42,7 @@ export function assertReleaseTag(tag, pattern = DEFAULT_TAG_PATTERN) {
   return tag;
 }
 
-export function scanWorkflowText(workflowPath, text) {
+export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   if (typeof workflowPath !== 'string' || typeof text !== 'string') {
     throw new TypeError('workflow_scan_input_invalid');
   }
@@ -50,6 +50,10 @@ export function scanWorkflowText(workflowPath, text) {
     ({ reasonCode }) => reasonCode,
   );
   const normalized = text.replace(/\\\r?\n/g, ' ').replace(/\s+/g, ' ');
+  const normalizedNpm = normalized
+    .replace(/\bnpm\s+(?:(?:--prefix|--workspace|--prefixes)\s+\S+|--(?:silent|quiet|yes|global|location=\S+))\s+/gi, 'npm ')
+    .replace(/\bnpm\s+run-script\b/gi, 'npm run')
+    .replace(/\bnpm\s+run\s+--(?:silent|quiet|if-present)\s+/gi, 'npm run ');
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
@@ -68,15 +72,39 @@ export function scanWorkflowText(workflowPath, text) {
   ) {
     findings.push('workflow_dynamic_gh_api_write_forbidden');
   }
-  const unsafeLocalRunner = /\brun:\s*(?:\||>)?[\s\S]*?\b(?:node|python\d*|bash|sh|npx)\s+[^\r\n]*(?:deploy|production|promote|rollback)[^\r\n]*/i;
+  const unsafeLocalRunner = /\brun:\s*(?:\||>)?[\s\S]*?\b(?:node|python\d*|bash|sh|npx)\s+[^\r\n]*(?:deploy|production|promote|rollback|publish|release)[^\r\n]*/i;
   if (unsafeLocalRunner.test(text)) {
     findings.push('workflow_dynamic_local_write_forbidden');
   }
   if (
-    /\bnpm\s+(?:run|exec|x)\b/i.test(normalized) &&
-    /\bnpm\s+(?:run|exec|x)\s+(?:[^\s]+:)?(?:release:(?!admit\b)|ship\b|deploy\b|publish\b|promote\b|rollback\b)/i.test(normalized)
+    /\bnpm\s+(?:run|exec|x)\b/i.test(normalizedNpm) &&
+    /\bnpm\s+(?:run|exec|x)\s+(?:[^\s]+:)?(?:release:(?!admit\b)|ship\b|deploy\b|publish\b|promote\b|rollback\b)/i.test(normalizedNpm)
   ) {
     findings.push('workflow_npm_write_forbidden');
+  }
+  if (/\bnpm\s+run\s+(?:["'`]?(?:\$|\$\{|\$\())/i.test(normalizedNpm)) {
+    findings.push('workflow_dynamic_npm_write_forbidden');
+  }
+  if (/\bnpm\s+(?:exec|x)\s+vercel\b/i.test(normalizedNpm)) {
+    findings.push('workflow_npm_write_forbidden');
+  }
+  if (/\brun:\s*["'`]?\$[A-Za-z_{]/i.test(text) && /\b(?:run|exec)\b/i.test(normalized)) {
+    findings.push('workflow_dynamic_npm_write_forbidden');
+  }
+  if (scripts && typeof scripts === 'object') {
+    const visited = new Set();
+    const scriptWrites = (name, depth = 0) => {
+      if (depth > 12 || visited.has(name)) return false;
+      visited.add(name);
+      const command = scripts[name];
+      if (typeof command !== 'string') return false;
+      if (/(?:vercel\b|--prod\b|production|promote|rollback|git\s+push|gh\s+release|api\.github\.com|api\.vercel\.com)/i.test(command)) return true;
+      const nested = [...command.matchAll(/\bnpm\s+run(?:-script)?\s+(?:--\S+\s+)*([A-Za-z0-9:_-]+)/gi)];
+      return nested.some((match) => scriptWrites(match[1], depth + 1));
+    };
+    for (const match of normalizedNpm.matchAll(/\bnpm\s+run(?:-script)?\s+(?:--\S+\s+)*([A-Za-z0-9:_-]+)/gi)) {
+      if (scriptWrites(match[1])) findings.push('workflow_npm_script_write_forbidden');
+    }
   }
   return [...new Set(findings)];
 }
@@ -161,6 +189,14 @@ export async function verifyTargetTree({ runner, repoRoot, tag, config }) {
     fail('target_release_config_mismatch');
   }
 
+  let targetPackageScripts = null;
+  try {
+    const packageResult = await git(runner, repoRoot, ['show', `${targetSha}:package.json`]);
+    targetPackageScripts = JSON.parse(packageResult.stdout).scripts ?? null;
+  } catch {
+    targetPackageScripts = null;
+  }
+
   const tree = await git(runner, repoRoot, ['ls-tree', '-rz', '--full-tree', targetSha]);
   const artifactManifest = buildArtifactManifest(tree.stdout);
   const workflowPaths = artifactManifest.entries
@@ -170,7 +206,7 @@ export async function verifyTargetTree({ runner, repoRoot, tag, config }) {
   const workflowFindings = [];
   for (const workflowPath of workflowPaths) {
     const workflow = await git(runner, repoRoot, ['show', `${targetSha}:${workflowPath}`]);
-    for (const reasonCode of scanWorkflowText(workflowPath, workflow.stdout)) {
+    for (const reasonCode of scanWorkflowText(workflowPath, workflow.stdout, { scripts: targetPackageScripts })) {
       workflowFindings.push({ path: workflowPath, reasonCode });
     }
   }
