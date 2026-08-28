@@ -5,7 +5,7 @@ import { main, parseCliArgs, safeReasonCode } from '../../../scripts/release/cli
 test('CLI parses only explicit release arguments', () => {
   assert.deepEqual(
     parseCliArgs([
-      'stage',
+      'promote',
       '--tag',
       'v1.2.3',
       '--authorize',
@@ -14,7 +14,7 @@ test('CLI parses only explicit release arguments', () => {
       'https://example.vercel.app',
     ]),
     {
-      command: 'stage',
+      command: 'promote',
       tag: 'v1.2.3',
       authorize: 'a'.repeat(64),
       deployment: 'https://example.vercel.app',
@@ -25,6 +25,10 @@ test('CLI parses only explicit release arguments', () => {
       assetId: undefined,
     },
   );
+  assert.throws(() => parseCliArgs(['stage', '--deployment', 'https://example.vercel.app']), /cli_argument_forbidden/);
+  assert.throws(() => parseCliArgs(['admit', '--tag', 'v1.2.3', '--authorize', 'a'.repeat(64)]), /cli_argument_forbidden/);
+  assert.throws(() => parseCliArgs(['stage', '--tag', 'v1.2.3', '--local-only']), /cli_argument_forbidden/);
+  assert.throws(() => parseCliArgs(['promote', '--tag', 'v1.2.3', '--asset-id', '42']), /cli_argument_forbidden/);
   assert.throws(() => parseCliArgs(['stage', '--yes']), /cli_argument_unknown/);
   assert.throws(() => parseCliArgs(['unknown']), /cli_command_unknown/);
   assert.throws(

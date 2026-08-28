@@ -221,24 +221,45 @@ test('default Admission runs only committed local gates and writes evidence', as
   const runtime = await createRuntime({
     repoRoot: root,
     runner,
+    environment: { GITHUB_ACTIONS: 'true', GITHUB_RUN_ID: '123', GITHUB_WORKFLOW: 'Release admission' },
     clock: () => new Date('2026-08-28T00:00:00.000Z'),
   });
   const result = await runtime.controller.admit({
     repoRoot: root,
     config,
     tag: 'v1.2.3',
-    hosted: false,
+    hosted: true,
     billingFallback: false,
   });
   assert.equal(result.status, 'admission_ready');
   assert.equal(result.targetSha, TARGET_SHA);
-  assert.equal(result.mode, 'local');
+  assert.equal(result.mode, 'hosted');
   assert.equal(
     commandResults.some(([command]) => command === 'gh' || command === 'vercel'),
     false,
   );
   assert.doesNotReject(
     readFile(path.join(root, '.release-state/v1.2.3/release-admission.json')),
+  );
+});
+
+test('Admission refuses an unverified local mode', async () => {
+  const { root, config } = await tempRepository();
+  const { runner } = gitFactsRunner({ root, config });
+  const runtime = await createRuntime({
+    repoRoot: root,
+    runner,
+    clock: () => new Date('2026-08-28T00:00:00.000Z'),
+  });
+  await assert.rejects(
+    runtime.controller.admit({
+      repoRoot: root,
+      config,
+      tag: 'v1.2.3',
+      hosted: false,
+      billingFallback: false,
+    }),
+    /hosted_admission_required/,
   );
 });
 

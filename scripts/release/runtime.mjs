@@ -752,8 +752,19 @@ async function runAdmission({
   billingFallback,
   clock,
   tempRoot,
+  environment = process.env,
 }) {
   const target = await verifyTargetTree({ runner, repoRoot, tag, config });
+  if (!hosted && !billingFallback) fail('hosted_admission_required');
+  if (
+    hosted &&
+    (environment?.GITHUB_ACTIONS !== 'true' ||
+      !/^\d+$/.test(environment?.GITHUB_RUN_ID ?? '') ||
+      typeof environment?.GITHUB_WORKFLOW !== 'string' ||
+      environment.GITHUB_WORKFLOW.length === 0)
+  ) {
+    fail('hosted_admission_context_missing');
+  }
   if (hosted && billingFallback) fail('billing_fallback_hosted_conflict');
   const billingProof = billingFallback
     ? await verifyBillingFallback({
@@ -1566,10 +1577,11 @@ export async function createRuntime({
   clock = () => new Date(),
   nonce,
   tempRoot = os.tmpdir(),
+  environment = process.env,
 } = {}) {
   const config = await loadReleaseConfig(repoRoot);
   const operations = {
-    admit: (request) => runAdmission({ runner, clock, tempRoot, ...request }),
+    admit: (request) => runAdmission({ runner, clock, tempRoot, environment, ...request }),
     audit: async (request) => {
       if (request.localOnly) return localAudit({ runner, repoRoot, config });
       if (!request.tag) fail('audit_tag_required');

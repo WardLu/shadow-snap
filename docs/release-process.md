@@ -5,7 +5,8 @@ Shadow Snap 使用本地 Release Controller，将代码集成、Release 选择�
 ## 本地命令
 
 ```bash
-npm run release:admit -- --tag v1.2.0
+# 只在 GitHub Actions 的只读 Admission job 中执行
+npm run release:admit -- --tag v1.2.0 --hosted
 npm run release:initialize -- --tag v1.2.0
 npm run release:stage -- --tag v1.2.0
 npm run release:promote -- --tag v1.2.0 --deployment https://deployment.vercel.app
@@ -19,6 +20,8 @@ npm run release:unlock -- --tag v1.2.0
 npm run release:fail -- --tag v1.2.0
 npm run release:anchor-admission -- --tag v1.2.0 --asset-id ORIGINAL_GITHUB_ASSET_ID
 ```
+
+普通本地调用 Admission 会被拒绝；本地门禁只能在已经核实 GitHub Billing/Spending Limit 导致托管 job 零步骤失败后，用 `--billing-fallback` 运行，并在 evidence 中明确标记。
 
 除 Admission 和 Audit 外，第一次调用只输出包含准确 repository、tag、commit、artifact manifest、old ref/Current、Team、Project、rootDirectory、domains、Vercel CLI 版本、配置 hash、nonce 和过期时间的授权摘要。用户明确确认该摘要后，才可把对应 `authorizationDigest` 作为 `--authorize` 再调用。授权十分钟过期、只能消费一次，也不能跨仓、跨 tag、跨 deployment 或跨操作复用。
 

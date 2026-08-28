@@ -27,6 +27,20 @@ const BOOLEAN_FLAGS = new Map([
   ['--local-only', 'localOnly'],
   ['--billing-fallback', 'billingFallback'],
 ]);
+const COMMAND_SCHEMAS = new Map([
+  ['admit', { allowed: new Set(['tag', 'hosted', 'billingFallback']), required: new Set(['tag']) }],
+  ['initialize', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
+  ['stage', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
+  ['promote', { allowed: new Set(['tag', 'authorize', 'deployment']), required: new Set(['tag', 'deployment']) }],
+  ['rollback', { allowed: new Set(['tag', 'authorize', 'deployment']), required: new Set(['tag', 'deployment']) }],
+  ['resume', { allowed: new Set(['tag', 'authorize', 'intent']), required: new Set(['tag', 'intent']) }],
+  ['recover', { allowed: new Set(['tag', 'authorize', 'intent']), required: new Set(['tag', 'intent']) }],
+  ['renew', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
+  ['audit', { allowed: new Set(['tag', 'localOnly']), required: new Set() }],
+  ['unlock', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
+  ['fail', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
+  ['anchor-admission', { allowed: new Set(['tag', 'assetId']), required: new Set(['tag', 'assetId']) }],
+]);
 
 function fail(reasonCode) {
   throw new Error(reasonCode);
@@ -64,6 +78,16 @@ export function parseCliArgs(argv) {
       continue;
     }
     fail('cli_argument_unknown');
+  }
+  const schema = COMMAND_SCHEMAS.get(result.command);
+  for (const key of seen) {
+    const logicalKey = VALUE_FLAGS.get(key) ?? BOOLEAN_FLAGS.get(key);
+    if (!schema.allowed.has(logicalKey)) fail(`cli_argument_forbidden:${key}`);
+  }
+  for (const required of schema.required) {
+    if (result[required] === undefined || result[required] === false) {
+      fail(`cli_argument_required:${required}`);
+    }
   }
   return result;
 }

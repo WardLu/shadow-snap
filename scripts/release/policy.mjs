@@ -72,6 +72,12 @@ export function scanWorkflowText(workflowPath, text) {
   if (unsafeLocalRunner.test(text)) {
     findings.push('workflow_dynamic_local_write_forbidden');
   }
+  if (
+    /\bnpm\s+(?:run|exec|x)\b/i.test(normalized) &&
+    /\bnpm\s+(?:run|exec|x)\s+(?:[^\s]+:)?(?:release:(?!admit\b)|ship\b|deploy\b|publish\b|promote\b|rollback\b)/i.test(normalized)
+  ) {
+    findings.push('workflow_npm_write_forbidden');
+  }
   return [...new Set(findings)];
 }
 

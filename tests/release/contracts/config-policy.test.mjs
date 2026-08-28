@@ -104,3 +104,18 @@ test('rejects dynamic HTTP, GitHub Script, and third-party deploy bypasses', () 
     ['workflow_dynamic_local_write_forbidden'],
   );
 });
+
+test('rejects npm scripts that can reach release or deployment writes', () => {
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/release-stage.yml', 'steps:\n  - run: npm run release:stage -- --tag v1.2.3\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/ship.yml', 'steps:\n  - run: npm run ship\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/release.yml', 'steps:\n  - run: npm run release:admit -- --tag v1.2.3 --hosted\n'),
+    [],
+  );
+});
