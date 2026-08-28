@@ -130,6 +130,31 @@ test('rejects YAML permission aliases and requires explicit permissions in enfor
       ['permissions:', '  contents: !!str write'].join('\n'),
     ).includes('workflow_permission_write_forbidden'),
   );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/quoted-permissions-key.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        'jobs:',
+        '  deploy:',
+        '    "permissions": {contents: write}',
+      ].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
+  assert.ok(
+    scanWorkflowText(
+      '.github/workflows/tagged-permissions-key.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        'jobs:',
+        '  deploy:',
+        '    !!str permissions:',
+        '      contents: write',
+      ].join('\n'),
+    ).includes('workflow_permission_write_forbidden'),
+  );
   assert.deepEqual(
     scanWorkflowText(
       '.github/workflows/query-parameter.yml',

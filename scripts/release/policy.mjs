@@ -302,6 +302,34 @@ function stripYamlStringsAndComments(line) {
   return result;
 }
 
+function stripYamlComment(line) {
+  let quote = null;
+  let escaped = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (quote) {
+      if (quote === '"' && escaped) {
+        escaped = false;
+      } else if (quote === '"' && character === '\\') {
+        escaped = true;
+      } else if (quote === '"' && character === '"') {
+        quote = null;
+      } else if (quote === "'" && character === "'" && line[index + 1] === "'") {
+        index += 1;
+      } else if (quote === "'" && character === "'") {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '#') return line.slice(0, index);
+  }
+  return line;
+}
+
 function extractPermissionBlocks(text) {
   const lines = text.split(/\r?\n/);
   const blocks = [];
@@ -317,7 +345,10 @@ function extractPermissionBlocks(text) {
       blockScalarIndent = indent;
       continue;
     }
-    const match = /^(\s*)permissions\s*:(.*)$/.exec(sanitized);
+    const uncommented = stripYamlComment(lines[index]);
+    const match = /^(\s*)(?:(?:!{1,2}(?:[^\s]+)?|&[^\s]+)\s+)*(?:permissions|["']permissions["'])\s*:(.*)$/.exec(
+      uncommented,
+    );
     if (!match) continue;
 
     const parentIndent = match[1].length;
@@ -334,7 +365,11 @@ function extractPermissionBlocks(text) {
       block.push(lines[next]);
     }
     index = next - 1;
-    blocks.push({ indent: parentIndent, value: block.join('\n') });
+    blocks.push({
+      indent: parentIndent,
+      value: block.join('\n'),
+      taggedKey: /^(?:\s*)(?:(?:!{1,2}(?:[^\s]+)?|&[^\s]+)\s+)+/.test(uncommented),
+    });
   }
   return blocks;
 }
@@ -418,7 +453,10 @@ export function scanWorkflowText(
   const writablePermission = [...permissionText.matchAll(permissionValuePattern)].some(
     (match) => !['read', 'none'].includes(match[1].toLowerCase()),
   );
-  const permissionTag = permissionBlocks.some(({ value }) => /(?:^|[\s,{])!{1,2}[^\s,{]+/.test(value));
+  const permissionTag = permissionBlocks.some(
+    ({ value, taggedKey }) =>
+      taggedKey || /(?:^|[\s,{])!{1,2}[^\s,{]+/.test(value),
+  );
   if (
     permissionBlocks.some(({ value }) => /^\s*["']?(?:write-all|write)["']?(?:\s*#.*)?$/i.test(value)) ||
     writablePermission ||
