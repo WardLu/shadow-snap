@@ -148,4 +148,14 @@ test('rejects npm scripts that can reach release or deployment writes', () => {
     }),
     ['workflow_npm_script_write_forbidden'],
   );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/quoted.yml', 'steps:\n  - run: "npm" run release:stage -- --tag v1.2.3\n'),
+    ['workflow_npm_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/unknown.yml', 'steps:\n  - run: npm run go-live\n', {
+      scripts: { 'go-live': 'echo deploy later' },
+    }),
+    ['workflow_npm_script_not_allowlisted'],
+  );
 });

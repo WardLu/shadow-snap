@@ -352,9 +352,8 @@ function hostedEnvironmentProof({ environment, config, tag, targetSha }) {
     required.ref !== `refs/tags/${tag}` ||
     required.refName !== tag ||
     required.sha !== targetSha ||
-    !new RegExp(
-      `^${config.repository.replace('/', '\\/')}\\/.github\\/workflows\\/release\\.yml@`,
-    ).test(required.workflowRef)
+    required.workflowRef !==
+      `${config.repository}/.github/workflows/release.yml@refs/tags/${tag}`
   ) {
     fail('hosted_admission_context_invalid');
   }
@@ -368,6 +367,7 @@ async function verifyHostedRunProof({
   targetSha,
   proof,
   requireCompleted,
+  admissionDigest = null,
 }) {
   if (
     proof?.repository !== config.repository ||
@@ -378,9 +378,8 @@ async function verifyHostedRunProof({
     proof.refName !== proof.tag ||
     proof.sha !== targetSha ||
     typeof proof.workflowRef !== 'string' ||
-    !new RegExp(
-      `^${config.repository.replace('/', '\\/')}\\/.github\\/workflows\\/release\\.yml@`,
-    ).test(proof.workflowRef)
+    proof.workflowRef !==
+      `${config.repository}/.github/workflows/release.yml@refs/tags/${proof.tag}`
   ) fail('hosted_admission_proof_invalid');
   const run = await githubApiJson({
     runner,
@@ -392,13 +391,35 @@ async function verifyHostedRunProof({
     run.id !== proof.runId ||
     run.run_attempt !== proof.runAttempt ||
     run.head_sha !== targetSha ||
-    run.path !== '.github/workflows/release.yml' ||
+    run.path?.split('@')[0] !== '.github/workflows/release.yml' ||
     run.event !== proof.event ||
-    run.head_repository?.full_name !== config.repository ||
-    (proof.event === 'push' && run.ref !== proof.ref)
+    (run.repository?.full_name ?? run.head_repository?.full_name) !== config.repository ||
+    (run.path?.includes('@') && !run.path.endsWith(`@${proof.ref}`) && !run.path.endsWith(`@${proof.refName}`))
   ) fail('hosted_admission_run_binding_mismatch');
   if (requireCompleted && (run.status !== 'completed' || run.conclusion !== 'success')) {
     fail('hosted_admission_run_not_successful');
+  }
+  if (requireCompleted) {
+    if (!/^[0-9a-f]{64}$/.test(admissionDigest ?? '')) {
+      fail('hosted_admission_artifact_digest_missing');
+    }
+    const artifactsPayload = await githubApiJson({
+      runner,
+      repoRoot,
+      endpoint: `/repos/${config.repository}/actions/runs/${proof.runId}/artifacts?per_page=100`,
+      reasonCode: 'hosted_admission_artifacts_json_invalid',
+    });
+    if (!Array.isArray(artifactsPayload.artifacts)) {
+      fail('hosted_admission_artifacts_shape_invalid');
+    }
+    const artifact = artifactsPayload.artifacts.find(
+      (candidate) =>
+        candidate.name === `shadow-snap-release-admission-${proof.tag}-${admissionDigest}` &&
+        candidate.expired === false &&
+        Number(candidate.size_in_bytes) > 0 &&
+        candidate.workflow_run?.id === proof.runId,
+    );
+    if (!artifact) fail('hosted_admission_artifact_binding_mismatch');
   }
   return {
     repository: config.repository,
@@ -433,6 +454,7 @@ export async function verifyBillingFallback({
   repoRoot,
   repository,
   targetSha,
+  expectedProof = null,
 }) {
   const runs = await githubApiJson({
     runner,
@@ -445,7 +467,9 @@ export async function verifyBillingFallback({
     (run) =>
       run.head_sha === targetSha &&
       run.event === 'push' &&
-      run.path === '.github/workflows/release.yml',
+      run.path?.split('@')[0] === '.github/workflows/release.yml' &&
+      (!expectedProof || run.id === expectedProof.workflowRunId) &&
+      (!expectedProof || run.run_attempt === expectedProof.workflowRunAttempt),
   );
   if (matchingRuns.some((run) => run.status === 'completed' && run.conclusion === 'success')) {
     fail('billing_fallback_not_needed');
@@ -471,6 +495,7 @@ export async function verifyBillingFallback({
       job.head_sha === targetSha,
   );
   if (!Number.isInteger(failedJob?.id)) fail('billing_fallback_failed_job_missing');
+  if (expectedProof && failedJob.id !== expectedProof.jobId) fail('billing_fallback_job_binding_mismatch');
   const steps = Array.isArray(failedJob.steps) ? failedJob.steps : [];
   if (steps.length !== 0) fail('billing_fallback_code_steps_started');
 
@@ -490,6 +515,7 @@ export async function verifyBillingFallback({
   const checkRun = checkRuns.check_runs.find(
     (check) =>
       check.id === checkRunId &&
+      (!expectedProof || check.id === expectedProof.checkRunId) &&
       check.name === 'admission' &&
       check.conclusion === 'failure' &&
       Number(check.output?.annotations_count) > 0,
@@ -508,13 +534,17 @@ export async function verifyBillingFallback({
       /billing|spending limit|payment failed|付款|计费/i.test(annotation.message),
   );
   if (!billingAnnotation) fail('billing_fallback_annotation_missing');
+  const annotationSha256 = sha256(billingAnnotation.message);
+  if (expectedProof && annotationSha256 !== expectedProof.annotationSha256) {
+    fail('billing_fallback_annotation_binding_mismatch');
+  }
   return {
     workflowRunId: failedRun.id,
     workflowRunAttempt: failedRun.run_attempt,
     jobId: failedJob.id,
     checkRunId: checkRun.id,
     stepCount: 0,
-    annotationSha256: sha256(billingAnnotation.message),
+    annotationSha256,
   };
 }
 
@@ -738,6 +768,15 @@ async function readReleaseSnapshot({
   ) {
     fail('release_billing_proof_invalid');
   }
+  if (admission.mode === 'billing-fallback') {
+    await verifyBillingFallback({
+      runner,
+      repoRoot,
+      repository,
+      targetSha: admission.targetSha,
+      expectedProof: admission.billingProof,
+    });
+  }
   if (admission.mode === 'hosted') {
     await verifyHostedRunProof({
       runner,
@@ -746,6 +785,7 @@ async function readReleaseSnapshot({
       targetSha: admission.targetSha,
       proof: admission.hostedProof,
       requireCompleted: true,
+      admissionDigest: admissionDocument.digest,
     });
   }
   const contract = admission.releaseContract;

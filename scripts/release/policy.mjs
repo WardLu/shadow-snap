@@ -32,6 +32,24 @@ const SENSITIVE_WORKFLOW_TOKEN = /(?:secrets\.[A-Za-z0-9_]+|GITHUB_TOKEN|GH_TOKE
 const PRODUCTION_API_HOST = /(?:api\.github\.com|api\.vercel\.com|\/repos\/[^\s]+\/(?:git\/refs|releases|deployments)|\/v\d+\/(?:projects|deployments))/i;
 const DYNAMIC_HTTP_CLIENT = /\b(?:curl|wget)\b|\b(?:fetch|axios\.(?:post|put|patch|delete)|https?\.request)\s*\(/i;
 const APPROVED_ACTION = /^(?:actions\/(?:checkout|setup-node|cache|upload-artifact|download-artifact)|github\/codeql-action\/(?:init|analyze|autobuild))@(?:v?[0-9]+|[0-9a-f]{40})$/i;
+const SAFE_NPM_SCRIPTS = new Set([
+  'ci',
+  'test',
+  'lint',
+  'build',
+  'typecheck',
+  'type-check',
+  'format:check',
+  'security:audit',
+  'release:check',
+  'release:admit',
+  'test:release-controller',
+  'test:seo:http',
+  'test:control-plane:local',
+  'test:release-handoff',
+  'test:release-autopilot-contract',
+  'test:release-watcher',
+]);
 
 function fail(reasonCode) {
   throw new Error(reasonCode);
@@ -51,9 +69,10 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
   );
   const normalized = text.replace(/\\\r?\n/g, ' ').replace(/\s+/g, ' ');
   const normalizedNpm = normalized
-    .replace(/\bnpm\s+(?:(?:--prefix|--workspace|--prefixes)\s+\S+|--(?:silent|quiet|yes|global|location=\S+))\s+/gi, 'npm ')
+    .replace(/(["'`])npm\1/gi, 'npm')
+    .replace(/\bnpm\s+(?:(?:--prefix|--workspace|--prefixes)(?:=|\s+)\S+|--(?:silent|quiet|yes|global|location=\S+)|-[sq])\s+/gi, 'npm ')
     .replace(/\bnpm\s+run-script\b/gi, 'npm run')
-    .replace(/\bnpm\s+run\s+--(?:silent|quiet|if-present)\s+/gi, 'npm run ');
+    .replace(/\bnpm\s+run\s+(?:(?:--silent|--quiet|--if-present|-[sq])\s+)+/gi, 'npm run ');
   const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
@@ -103,7 +122,11 @@ export function scanWorkflowText(workflowPath, text, { scripts = null } = {}) {
       return nested.some((match) => scriptWrites(match[1], depth + 1));
     };
     for (const match of normalizedNpm.matchAll(/\bnpm\s+run(?:-script)?\s+(?:--\S+\s+)*([A-Za-z0-9:_-]+)/gi)) {
-      if (scriptWrites(match[1])) findings.push('workflow_npm_script_write_forbidden');
+      if (scriptWrites(match[1])) {
+        findings.push('workflow_npm_script_write_forbidden');
+      } else if (!SAFE_NPM_SCRIPTS.has(match[1])) {
+        findings.push('workflow_npm_script_not_allowlisted');
+      }
     }
   }
   return [...new Set(findings)];

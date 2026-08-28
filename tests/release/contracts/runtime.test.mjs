@@ -161,12 +161,12 @@ function gitFactsRunner({ root, config, release } = {}) {
             id: 123,
             run_attempt: 1,
             head_sha: TARGET_SHA,
-            path: '.github/workflows/release.yml',
+            path: '.github/workflows/release.yml@refs/tags/v1.2.3',
             event: 'push',
             ref: 'refs/tags/v1.2.3',
             status: 'completed',
             conclusion: 'success',
-            head_repository: { full_name: config.repository },
+            repository: { full_name: config.repository },
           }),
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
@@ -182,9 +182,34 @@ function gitFactsRunner({ root, config, release } = {}) {
       if (args[1].includes('/releases/tags/')) {
         return { stdout: JSON.stringify(release), exitCode: 0, stderrDigest: '0'.repeat(64) };
       }
-      if (args[1].includes('/releases/assets/1')) {
+      if (args[1].includes('/actions/runs/123/artifacts')) {
+        const localAdmission = await readFile(
+          path.join(root, '.release-state/v1.2.3/release-admission.json'),
+          'utf8',
+        ).catch(() => null);
+        const admissionDigest = localAdmission
+          ? createHash('sha256').update(localAdmission).digest('hex')
+          : '0'.repeat(64);
         return {
           stdout: JSON.stringify({
+            artifacts: [{
+              name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
+              expired: false,
+              size_in_bytes: 1,
+              workflow_run: { id: 123 },
+            }],
+          }),
+          exitCode: 0,
+          stderrDigest: '0'.repeat(64),
+        };
+      }
+      if (args[1].includes('/releases/assets/1')) {
+        const localAdmission = await readFile(
+          path.join(root, '.release-state/v1.2.3/release-admission.json'),
+          'utf8',
+        ).catch(() => null);
+        return {
+          stdout: localAdmission ?? JSON.stringify({
             schemaVersion: 1,
             state: 'admission_ready',
             repository: config.repository,
