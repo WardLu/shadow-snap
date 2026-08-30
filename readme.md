@@ -60,6 +60,7 @@
 - 1.1.1：修复 Release Controller 证据清单在规范化落盘后的摘要校验
 - 1.1.2：修复 Adopt intent 上传后的回读与恢复状态识别
 - 1.1.3：修复授权操作上传 intent 后的前置证据时间复核
+- 1.1.4：拒绝冲突或无效的 Vercel commit metadata，并要求 Adopt 的 Current deployment 为 READY production；同步 Portal 只读控制面校验入口
 
 ---
 由 Antigravity 协助开发

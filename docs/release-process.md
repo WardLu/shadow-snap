@@ -38,7 +38,7 @@ Controller 固定使用 Vercel CLI `50.28.0`。Admission 在准确 tag SHA 的�
 5. 单独授权发布 GitHub Release，并附加 hash 匹配的 `release-admission.json`。必须保留上传响应中的原始 GitHub asset ID，立即运行 `release:anchor-admission --asset-id <原始 ID>`。该命令只在首次锚定时复核托管 run/artifact 或 Billing fallback 证据，并上传长期保存的 `release-admission-receipt.json`；未完成原始 ID 和 receipt 锚定时，Initialize/Audit fail closed。
 6. 根据远端现状选择且只能选择一种首次接管方式：
    - `production` ref 不存在时，单独授权 Initialize。它只创建指向目标 Release SHA 的 `production` ref，并确认没有 deployment。
-   - `production` ref 已存在时，禁止删除、重建、强推或使用 Initialize；改为单独授权 Adopt。Adopt 只有在现有 production SHA 与线上 Current deployment 的 commit SHA 完全相同、该 SHA 是目标 Release 的祖先、Release/配置/Project 身份全部匹配时，才写入 `adopted` evidence。它不修改 ref、不部署，也不改变线上 Current。
+   - `production` ref 已存在时，禁止删除、重建、强推或使用 Initialize；改为单独授权 Adopt。Adopt 只有在 Current deployment 属于准确 Project、状态为 `READY`、target 为 `production`，全部非空 commit metadata 合法且互相一致，并与现有 production SHA 完全相同，且该 SHA 是目标 Release 的祖先、Release/配置/Project 身份全部匹配时，才写入 `adopted` evidence。它不修改 ref、不部署，也不改变线上 Current。
 7. 单独授权在 Vercel Dashboard 将 Production Branch 改为 `production`，并把 Auto-assign Custom Production Domains 设为关闭。线上 Current 必须保持不变。
 8. 单独授权 Stage。Controller strict-fast-forward `production`，从准确 Release SHA 构建并运行 `vercel deploy --prebuilt --prod --skip-domain`。staged deployment 必须 READY、metadata 完整，并通过受保护 URL 的 HTTP 200 与页面标识检查。
 9. 验收 staged URL 后，另行授权 Promote。Promote 前重读所有 ref、Release、evidence、Project、Current 和 deployment identity；Promote 后两个生产域名都必须通过 HTTPS 200 与页面标识检查，才写入 `production-acceptance`。

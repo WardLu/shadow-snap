@@ -39,6 +39,7 @@ import { clearStaleReleaseLease } from './unlock.mjs';
 import { deriveReleaseState, reconcileIntent } from './state.mjs';
 import {
   createStagedDeployment,
+  deploymentCommitSha,
   inspectDeployment,
   listMatchingStagedDeployments,
   promoteDeployment,
@@ -1496,11 +1497,7 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
           deploymentId: project.current.id,
         })
       : null;
-    const currentDeploymentSha =
-      currentDeployment?.meta?.releaseCommitSha ??
-      currentDeployment?.meta?.githubCommitSha ??
-      currentDeployment?.meta?.gitCommitSha ??
-      null;
+    const currentDeploymentSha = deploymentCommitSha(currentDeployment);
     const channel = await readRepositoryChannel({ runner, repoRoot, config, clock });
     validateReleaseChannel({ entries: channel, targetTag: tag, operation: 'audit' });
     const channelCurrent = latestAcceptedCurrent(channel);
@@ -1509,6 +1506,8 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
     if (snapshot.state === 'adopt_intent') {
       const adoptIntent = intentForOperation(snapshot, 'adopt');
       if (
+        currentDeployment?.readyState !== 'READY' ||
+        currentDeployment?.target !== 'production' ||
         productionSha !== adoptIntent?.oldSha ||
         currentDeploymentSha !== adoptIntent?.oldSha ||
         project.current?.id !== adoptIntent?.expectedCurrentDeploymentId
@@ -1522,6 +1521,8 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
         .reverse()
         .find(({ value }) => value.state === 'adopted')?.value;
       if (
+        currentDeployment?.readyState !== 'READY' ||
+        currentDeployment?.target !== 'production' ||
         productionSha !== adopted?.operationResult?.productionSha ||
         currentDeploymentSha !== adopted?.operationResult?.currentDeploymentSha ||
         project.current?.id !== adopted?.operationResult?.currentDeploymentId
@@ -1593,7 +1594,7 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
       if (
         inspected.readyState !== 'READY' ||
         inspected.target !== 'production' ||
-        inspected.meta?.releaseCommitSha !== target.targetSha ||
+        deploymentCommitSha(inspected) !== target.targetSha ||
         inspected.meta?.releaseTag !== tag ||
         inspected.meta?.releaseConfigHash !== snapshot.configHash
       ) fail('audit_staged_deployment_drift');
@@ -1611,12 +1612,7 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
       if (!acceptedDeployment?.id || project.current?.id !== acceptedDeployment.id) {
         fail('audit_current_deployment_mismatch');
       }
-      const currentSha =
-        currentDeployment?.meta?.releaseCommitSha ??
-        currentDeployment?.meta?.githubCommitSha ??
-        currentDeployment?.meta?.gitCommitSha ??
-        null;
-      if (currentSha !== target.targetSha) fail('audit_current_commit_mismatch');
+      if (currentDeploymentSha !== target.targetSha) fail('audit_current_commit_mismatch');
     }
 
     if (snapshot.state === 'rolled_back') {
@@ -1814,11 +1810,7 @@ async function readOperationFacts({
         deploymentId: project.current.id,
       })
     : null;
-  const currentDeploymentSha =
-    currentDeployment?.meta?.releaseCommitSha ??
-    currentDeployment?.meta?.githubCommitSha ??
-    currentDeployment?.meta?.gitCommitSha ??
-    null;
+  const currentDeploymentSha = deploymentCommitSha(currentDeployment);
   const base = {
     repository: config.repository,
     tag,
@@ -1832,6 +1824,8 @@ async function readOperationFacts({
     currentDeploymentId: project.current?.id ?? null,
     currentDeploymentUrl: project.current?.url ?? null,
     currentDeploymentSha,
+    currentDeploymentReadyState: currentDeployment?.readyState ?? null,
+    currentDeploymentTarget: currentDeployment?.target ?? null,
     teamId: config.vercel.teamId,
     projectId: config.vercel.projectId,
     rootDirectory: config.vercel.rootDirectory,
@@ -1900,7 +1894,8 @@ async function readOperationFacts({
     });
     if (
       inspected.readyState !== 'READY' ||
-      inspected.meta?.releaseCommitSha !== target.targetSha ||
+      inspected.target !== 'production' ||
+      deploymentCommitSha(inspected) !== target.targetSha ||
       inspected.meta?.releaseTag !== tag ||
       inspected.meta?.releaseConfigHash !== snapshot.configHash
     ) fail('renew_staged_deployment_invalid');
@@ -1942,6 +1937,10 @@ async function readOperationFacts({
     if (!/^[0-9a-f]{40}$/.test(currentDeploymentSha ?? '')) {
       fail('adopt_current_commit_missing');
     }
+    if (
+      currentDeployment?.readyState !== 'READY' ||
+      currentDeployment?.target !== 'production'
+    ) fail('adopt_current_deployment_invalid');
     if (currentDeploymentSha !== productionSha) fail('adopt_current_production_mismatch');
     const ancestry = await runner(
       'git',
@@ -2019,7 +2018,7 @@ async function readOperationFacts({
     if (
       inspectedStaged.readyState !== 'READY' ||
       inspectedStaged.target !== 'production' ||
-      inspectedStaged.meta?.releaseCommitSha !== target.targetSha ||
+      deploymentCommitSha(inspectedStaged) !== target.targetSha ||
       inspectedStaged.meta?.releaseTag !== tag ||
       inspectedStaged.meta?.releaseConfigHash !== snapshot.configHash
     ) {
@@ -2125,7 +2124,7 @@ async function readOperationFacts({
       if (
         inspectedResumeDeployment.readyState !== 'READY' ||
         inspectedResumeDeployment.target !== 'production' ||
-        inspectedResumeDeployment.meta?.releaseCommitSha !== found.value.targetSha ||
+        deploymentCommitSha(inspectedResumeDeployment) !== found.value.targetSha ||
         inspectedResumeDeployment.meta?.releaseTag !== tag ||
         inspectedResumeDeployment.meta?.releaseConfigHash !== found.value.configHash
       ) fail('resume_promote_deployment_invalid');
@@ -2135,7 +2134,7 @@ async function readOperationFacts({
         projectId: inspectedResumeDeployment.projectId,
         target: inspectedResumeDeployment.target,
         readyState: inspectedResumeDeployment.readyState,
-        releaseCommitSha: inspectedResumeDeployment.meta.releaseCommitSha,
+        releaseCommitSha: deploymentCommitSha(inspectedResumeDeployment),
         releaseTag: inspectedResumeDeployment.meta.releaseTag,
         releaseConfigHash: inspectedResumeDeployment.meta.releaseConfigHash,
       };
@@ -2296,11 +2295,9 @@ async function recheckIntentFacts({
     productionSha,
     currentDeploymentId: project.current?.id ?? null,
     currentDeploymentUrl: project.current?.url ?? null,
-    currentDeploymentSha:
-      recheckedCurrentDeployment?.meta?.releaseCommitSha ??
-      recheckedCurrentDeployment?.meta?.githubCommitSha ??
-      recheckedCurrentDeployment?.meta?.gitCommitSha ??
-      null,
+    currentDeploymentSha: deploymentCommitSha(recheckedCurrentDeployment),
+    currentDeploymentReadyState: recheckedCurrentDeployment?.readyState ?? null,
+    currentDeploymentTarget: recheckedCurrentDeployment?.target ?? null,
     teamId: config.vercel.teamId,
     projectId: config.vercel.projectId,
     rootDirectory: config.vercel.rootDirectory,
@@ -2549,7 +2546,7 @@ export async function createRuntime({
         if (
           inspected.readyState !== 'READY' ||
           inspected.target !== 'production' ||
-          inspected.meta?.releaseCommitSha !== facts.targetSha ||
+          deploymentCommitSha(inspected) !== facts.targetSha ||
           inspected.meta?.releaseTag !== tag ||
           inspected.meta?.releaseConfigHash !== facts.configHash
         ) {

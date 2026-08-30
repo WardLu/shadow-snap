@@ -833,6 +833,10 @@ test('accepts fixed read-only quality scripts and validators', () => {
     'release:check': 'node scripts/validate/release-notes.js',
     'supabase:control-plane:check':
       'node scripts/validate/shared-supabase-ledger.mjs && node scripts/validate/shared-supabase-local-contract.mjs',
+    'validate:release-config':
+      'node scripts/validate/release-config-registry.mjs --release quick-flomo-v1.6.0',
+    'test:release-config':
+      'node --test tests/control-plane/release-config-registry.test.mjs tests/control-plane/release-config-preflight.test.mjs tests/control-plane/quick-flomo-redemption-post-apply.test.mjs',
   };
   const text = [
     'permissions:',
@@ -847,6 +851,8 @@ test('accepts fixed read-only quality scripts and validators', () => {
     '  - run: npm run security:audit',
     '  - run: npm run release:check',
     '  - run: npm run supabase:control-plane:check',
+    '  - run: npm run validate:release-config',
+    '  - run: npm run test:release-config',
     '  - run: node scripts/validate/release-handoff.mjs',
   ].join('\n');
 
@@ -857,6 +863,20 @@ test('accepts fixed read-only quality scripts and validators', () => {
     }),
     [],
   );
+  for (const [name, command] of [
+    ['validate:release-config', 'node scripts/validate/release-config-registry.mjs --release another-release'],
+    ['test:release-config', `${scripts['test:release-config']} && gh release create v9.9.9`],
+  ]) {
+    assert.ok(
+      scanWorkflowText(
+        '.github/workflows/ci.yml',
+        `permissions: {contents: read}\nsteps:\n  - run: npm run ${name}`,
+        { scripts: { ...scripts, [name]: command }, requireExplicitPermissions: true },
+      ).some((reason) =>
+        ['workflow_npm_script_not_allowlisted', 'workflow_npm_script_write_forbidden'].includes(reason),
+      ),
+    );
+  }
 });
 
 test('requires release permissions at workflow level', () => {

@@ -42,6 +42,8 @@ const SAFE_NPM_SCRIPTS = new Set([
   'security:audit',
   'release:check',
   'supabase:control-plane:check',
+  'validate:release-config',
+  'test:release-config',
   'test:release-controller',
 ]);
 
@@ -61,6 +63,14 @@ const EXACT_READ_ONLY_SCRIPT_COMMANDS = new Map([
   [
     'supabase:control-plane:check',
     /^node\s+scripts\/validate\/shared-supabase-ledger\.mjs\s+&&\s+node\s+scripts\/validate\/shared-supabase-local-contract\.mjs\s*$/,
+  ],
+  [
+    'validate:release-config',
+    /^node\s+scripts\/validate\/release-config-registry\.mjs\s+--release\s+quick-flomo-v1\.6\.0\s*$/,
+  ],
+  [
+    'test:release-config',
+    /^node\s+--test\s+tests\/control-plane\/release-config-registry\.test\.mjs\s+tests\/control-plane\/release-config-preflight\.test\.mjs\s+tests\/control-plane\/quick-flomo-redemption-post-apply\.test\.mjs\s*$/,
   ],
   [
     'test:release-controller',
