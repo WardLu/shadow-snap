@@ -97,6 +97,7 @@ const AUTO_ASSIGN_SETTING_WRITE = Object.freeze({
   field: 'autoAssignCustomDomains',
   value: false,
 });
+const RELEASE_INTENT_STATE = /^(?:adopt|initialize|stage|promote|rollback|renew|fail)_intent$/;
 
 function hasAuthorizedSettingsWrite(settingsWrites) {
   return Array.isArray(settingsWrites) && settingsWrites.some(
@@ -1233,7 +1234,7 @@ async function readReleaseSnapshot({
     ) {
       fail('release_evidence_shape_invalid');
     }
-    const isIntent = /^(?:initialize|stage|promote|rollback|renew|fail)_intent$/.test(value.state);
+    const isIntent = RELEASE_INTENT_STATE.test(value.state);
     if (
       isIntent !== asset.name.startsWith('release-intent-') ||
       (isIntent && !asset.name.startsWith(`release-intent-${value.operation}-`))
@@ -2096,7 +2097,7 @@ async function readOperationFacts({
     if (!/^[0-9a-f]{64}$/.test(requestedIntent ?? '')) fail('resume_intent_hash_invalid');
     const found = snapshot.decodedAssets.find(
       ({ value, digest }) =>
-        /^(?:initialize|stage|promote|rollback|renew|fail)_intent$/.test(value.state) &&
+        RELEASE_INTENT_STATE.test(value.state) &&
         digest === requestedIntent,
     );
     if (!found) fail('resume_intent_not_found');

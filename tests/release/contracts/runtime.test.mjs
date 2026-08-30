@@ -13,6 +13,7 @@ import { installControllerBinding } from '../../../scripts/release/lock.mjs';
 import {
   assertResumeIntentAuthority,
   createRuntime,
+  readRepositoryChannel,
   validateReleaseChannel,
   verifyBillingFallback,
   verifyReleaseAssetAnchor,
@@ -659,6 +660,109 @@ test('Adopt preview binds an existing production baseline without remote writes'
     mismatch.commandResults.some(([command, sub]) => command === 'git' && sub === 'push'),
     false,
   );
+});
+
+test('repository channel accepts an immutable Adopt intent asset after upload', async () => {
+  const { root, config } = await tempRepository();
+  const admission = {
+    schemaVersion: 1,
+    state: 'admission_ready',
+    repository: config.repository,
+    tag: 'v1.2.3',
+    targetSha: TARGET_SHA,
+    mainSnapshot: MAIN_SHA,
+    configHash: hashReleaseConfig(config),
+    mode: 'hosted',
+    commands: [],
+    workflowPaths: ['.github/workflows/release.yml'],
+    artifactManifest: ARTIFACT_MANIFEST,
+    releaseContract: releaseContract(config),
+    hostedProof: hostedProof(config),
+    createdAt: '2026-08-27T23:00:00.000Z',
+  };
+  const admissionRaw = canonicalJson(admission);
+  const receiptRaw = canonicalJson(hostedReceipt(config, admissionRaw));
+  const intent = {
+    schemaVersion: 1,
+    state: 'adopt_intent',
+    fromState: 'admitted',
+    operation: 'adopt',
+    repository: config.repository,
+    tag: 'v1.2.3',
+    targetSha: TARGET_SHA,
+    configHash: hashReleaseConfig(config),
+    createdAt: '2026-08-27T23:31:00.000Z',
+  };
+  const intentRaw = canonicalJson(intent);
+  const intentName = 'release-intent-adopt-test-nonce.json';
+  await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
+  await writeFile(path.join(root, '.release-state/v1.2.3/release-admission.json'), admissionRaw, {
+    mode: 0o600,
+  });
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'),
+    receiptRaw,
+    { mode: 0o600 },
+  );
+  await writeFile(path.join(root, `.release-state/v1.2.3/${intentName}`), intentRaw, {
+    mode: 0o600,
+  });
+  const release = {
+    tag_name: 'v1.2.3',
+    draft: false,
+    prerelease: false,
+    published_at: '2026-08-27T23:30:00.000Z',
+    assets: [
+      {
+        id: 1,
+        name: 'release-admission.json',
+        size: Buffer.byteLength(admissionRaw),
+        created_at: '2026-08-27T23:00:00.000Z',
+      },
+      {
+        id: 2,
+        name: 'release-admission-receipt.json',
+        size: Buffer.byteLength(receiptRaw),
+        created_at: '2026-08-27T23:30:30.000Z',
+      },
+      {
+        id: 3,
+        name: intentName,
+        size: Buffer.byteLength(intentRaw),
+        created_at: intent.createdAt,
+      },
+    ],
+  };
+  const base = gitFactsRunner({ root, config, release });
+  const runner = async (command, args, options) => {
+    if (
+      command === 'gh' &&
+      args[0] === 'api' &&
+      args[1] === `/repos/${config.repository}/releases/assets/3`
+    ) {
+      return { stdout: intentRaw, exitCode: 0, stderrDigest: '0'.repeat(64) };
+    }
+    return base.runner(command, args, options);
+  };
+  for (const asset of release.assets) {
+    await verifyReleaseAssetAnchor({
+      runner,
+      repoRoot: root,
+      repository: config.repository,
+      tag: 'v1.2.3',
+      asset,
+      allowIdentityCreate: true,
+    });
+  }
+  const entries = await readRepositoryChannel({
+    runner,
+    repoRoot: root,
+    config,
+    clock: () => new Date('2026-08-27T23:32:00.000Z'),
+  });
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, 'adopt_intent');
+  assert.match(entries[0].stateDigest, /^[0-9a-f]{64}$/);
 });
 
 test('remote Audit validates the full anchored release and freezes Vercel drift', async () => {
