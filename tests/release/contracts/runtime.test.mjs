@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,9 +19,13 @@ import {
 
 const TARGET_SHA = '2'.repeat(40);
 const MAIN_SHA = '3'.repeat(40);
+const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const fixtureConfig = JSON.parse(
+  readFileSync(path.join(sourceRoot, 'config/release-production.json'), 'utf8'),
+);
 const TREE_ROWS = [
   `100644 blob ${'a'.repeat(40)}\t.github/workflows/release.yml`,
-  `100644 blob ${'b'.repeat(40)}\tvercel.json`,
+  `100644 blob ${'b'.repeat(40)}\t${fixtureConfig.vercel.vercelJsonPath}`,
   `100644 blob ${'c'.repeat(40)}\tconfig/release-production.json`,
 ];
 const TREE_OUTPUT = `${TREE_ROWS.join('\0')}\0`;
@@ -37,7 +42,13 @@ const ARTIFACT_MANIFEST = {
     .digest('hex'),
   entries: ARTIFACT_ENTRIES,
 };
-const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+function repositorySlug(repository) {
+  return repository.split('/').at(-1).toLowerCase();
+}
+
+function admissionArtifactName(config, tag, digest) {
+  return `${repositorySlug(config.repository)}-release-admission-${tag}-${digest}`;
+}
 
 test('resume accepts only the current authoritative intent digest', () => {
   assert.throws(
@@ -119,7 +130,7 @@ function hostedReceipt(config, admissionRaw) {
     billingProof: null,
     artifact: {
       id: 88,
-      name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
+      name: admissionArtifactName(config, 'v1.2.3', admissionDigest),
       sizeInBytes: 1,
       evidenceSha256: admissionDigest,
       archiveDigest: `sha256:${'d'.repeat(64)}`,
@@ -143,8 +154,9 @@ async function tempRepository() {
     path.join(root, 'config/release-production.json'),
     `${JSON.stringify(config)}\n`,
   );
+  await mkdir(path.join(root, path.dirname(config.vercel.vercelJsonPath)), { recursive: true });
   await writeFile(
-    path.join(root, 'vercel.json'),
+    path.join(root, config.vercel.vercelJsonPath),
     `${JSON.stringify({ git: { deploymentEnabled: false } })}\n`,
   );
   await writeFile(
@@ -154,7 +166,13 @@ async function tempRepository() {
   return { root, config };
 }
 
-function gitFactsRunner({ root, config, release } = {}) {
+function gitFactsRunner({
+  root,
+  config,
+  release,
+  productionSha = null,
+  currentDeploymentSha = '1'.repeat(40),
+} = {}) {
   const commandResults = [];
   const runner = async (command, args) => {
     commandResults.push([command, ...args]);
@@ -168,7 +186,7 @@ function gitFactsRunner({ root, config, release } = {}) {
         return { stdout: `${MAIN_SHA}\n`, exitCode: 0, stderrDigest: '0'.repeat(64) };
       }
       if (args[0] === 'merge-base') return { stdout: '', exitCode: 0, stderrDigest: '0'.repeat(64) };
-      if (args[0] === 'show' && args[1].endsWith(':vercel.json')) {
+      if (args[0] === 'show' && args[1].endsWith(`:${config.vercel.vercelJsonPath}`)) {
         return {
           stdout: JSON.stringify({ git: { deploymentEnabled: false } }),
           exitCode: 0,
@@ -205,12 +223,20 @@ function gitFactsRunner({ root, config, release } = {}) {
       }
       if (args[0] === 'remote') {
         return {
-          stdout: 'https://github.com/WardLu/shadow-snap.git\n',
+          stdout: `https://github.com/${config.repository}.git\n`,
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
         };
       }
-      if (args[0] === 'ls-remote') return { stdout: '', exitCode: 0, stderrDigest: '0'.repeat(64) };
+      if (args[0] === 'ls-remote') {
+        return {
+          stdout: productionSha === null
+            ? ''
+            : `${productionSha}\trefs/heads/${config.productionBranch}\n`,
+          exitCode: 0,
+          stderrDigest: '0'.repeat(64),
+        };
+      }
       if (args[0] === 'rev-parse' && args[1] === '--git-common-dir') {
         return { stdout: `${path.join(root, '.git')}\n`, exitCode: 0, stderrDigest: '0'.repeat(64) };
       }
@@ -219,7 +245,7 @@ function gitFactsRunner({ root, config, release } = {}) {
       return { stdout: `Vercel CLI ${config.vercel.cliVersion}\n${config.vercel.cliVersion}\n`, exitCode: 0, stderrDigest: '0'.repeat(64) };
     }
     if (command === 'gh' && args[0] === 'api') {
-      if (args[1] === '/repos/WardLu/shadow-snap/actions/runs/123') {
+      if (args[1] === `/repos/${config.repository}/actions/runs/123`) {
         return {
           stdout: JSON.stringify({
             id: 123,
@@ -236,7 +262,7 @@ function gitFactsRunner({ root, config, release } = {}) {
           stderrDigest: '0'.repeat(64),
         };
       }
-      if (args[1] === '/repos/WardLu/shadow-snap/releases?per_page=100') {
+      if (args[1] === `/repos/${config.repository}/releases?per_page=100`) {
         return {
           stdout: JSON.stringify(release ? [release] : []),
           exitCode: 0,
@@ -258,7 +284,7 @@ function gitFactsRunner({ root, config, release } = {}) {
           stdout: JSON.stringify({
             artifacts: [{
               id: 88,
-              name: `shadow-snap-release-admission-v1.2.3-${admissionDigest}`,
+              name: admissionArtifactName(config, 'v1.2.3', admissionDigest),
               expired: false,
               size_in_bytes: 1,
               digest: `sha256:${'d'.repeat(64)}`,
@@ -318,7 +344,7 @@ function gitFactsRunner({ root, config, release } = {}) {
             projectId: config.vercel.projectId,
             target: 'production',
             readyState: 'READY',
-            meta: { githubCommitSha: '1'.repeat(40) },
+            meta: { githubCommitSha: currentDeploymentSha },
           }),
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
@@ -337,7 +363,7 @@ function gitFactsRunner({ root, config, release } = {}) {
         stdout: JSON.stringify({
           id: config.vercel.projectId,
           name: config.vercel.projectName,
-          rootDirectory: null,
+          rootDirectory: config.vercel.rootDirectory,
           link: { productionBranch: 'main' },
           autoAssignCustomDomains: true,
           targets: { production: { id: 'dpl_old', url: 'old.vercel.app' } },
@@ -346,7 +372,7 @@ function gitFactsRunner({ root, config, release } = {}) {
         stderrDigest: '0'.repeat(64),
       };
     }
-    if (['npm', 'node'].includes(command)) {
+    if (['npm', 'node', 'npx'].includes(command)) {
       return { stdout: 'ok\n', exitCode: 0, stderrDigest: '0'.repeat(64) };
     }
     throw new Error(`unexpected:${command}:${args.join(':')}`);
@@ -359,7 +385,7 @@ test('default Admission runs only committed local gates and writes evidence', as
   const base = gitFactsRunner({ root, config });
   const admissionChildOptions = [];
   const runner = async (command, args, options) => {
-    if (command === 'npm' || command === 'node') admissionChildOptions.push(options);
+    if (command === 'npm' || command === 'node' || command === 'npx') admissionChildOptions.push(options);
     return base.runner(command, args, options);
   };
   const { commandResults } = base;
@@ -392,11 +418,27 @@ test('default Admission runs only committed local gates and writes evidence', as
   assert.equal(result.mode, 'hosted');
   assert.equal(commandResults.some(([command]) => command === 'vercel'), false);
   assert.equal(commandResults.some(([command]) => command === 'gh'), true);
+  const treeInvocation = commandResults.find(
+    ([command, ...args]) => command === 'git' && args[0] === 'ls-tree',
+  );
+  assert.ok(treeInvocation?.includes('-r'), 'workflow tree scan must be recursive');
   assert.ok(admissionChildOptions.length >= 3);
   assert.equal(admissionChildOptions.every((options) => options.inheritEnv === false), true);
   assert.equal(admissionChildOptions.every((options) => options.env?.OPENAI_API_KEY === undefined), true);
   assert.equal(admissionChildOptions.every((options) => options.env?.GH_CONFIG_DIR), true);
   assert.equal(admissionChildOptions.every((options) => options.env?.VERCEL_TOKEN === undefined), true);
+  assert.equal(
+    admissionChildOptions.every(
+      (options) => options.env?.NEXT_PUBLIC_SUPABASE_URL === 'https://shadow-admission.invalid',
+    ),
+    true,
+  );
+  assert.equal(
+    admissionChildOptions.every(
+      (options) => options.env?.SUPABASE_SERVICE_ROLE_KEY === 'shadow-admission-service-placeholder',
+    ),
+    true,
+  );
   assert.doesNotReject(
     readFile(path.join(root, '.release-state/v1.2.3/release-admission.json')),
   );
@@ -509,6 +551,117 @@ test('default Initialize preview binds Release, ref, Vercel identity, and Curren
   assert.equal(commandResults.some(([command, sub]) => command === 'vercel' && sub === 'deploy'), false);
 });
 
+test('Adopt preview binds an existing production baseline without remote writes', async () => {
+  const { root, config } = await tempRepository();
+  const productionSha = '1'.repeat(40);
+  const admission = {
+    schemaVersion: 1,
+    state: 'admission_ready',
+    repository: config.repository,
+    tag: 'v1.2.3',
+    targetSha: TARGET_SHA,
+    mainSnapshot: MAIN_SHA,
+    configHash: hashReleaseConfig(config),
+    mode: 'hosted',
+    commands: [],
+    workflowPaths: ['.github/workflows/release.yml'],
+    artifactManifest: ARTIFACT_MANIFEST,
+    releaseContract: releaseContract(config),
+    hostedProof: hostedProof(config),
+    createdAt: '2026-08-27T23:00:00.000Z',
+  };
+  const admissionRaw = JSON.stringify(admission);
+  const receiptRaw = JSON.stringify(hostedReceipt(config, admissionRaw));
+  await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission.json'),
+    admissionRaw,
+    { mode: 0o600 },
+  );
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'),
+    receiptRaw,
+    { mode: 0o600 },
+  );
+  const release = {
+    tag_name: 'v1.2.3',
+    draft: false,
+    prerelease: false,
+    published_at: '2026-08-27T23:30:00.000Z',
+    assets: [
+      {
+        id: 1,
+        name: 'release-admission.json',
+        size: Buffer.byteLength(admissionRaw),
+        created_at: '2026-08-27T23:00:00.000Z',
+      },
+      {
+        id: 2,
+        name: 'release-admission-receipt.json',
+        size: Buffer.byteLength(receiptRaw),
+        created_at: '2026-08-28T00:00:00.000Z',
+      },
+    ],
+  };
+  const { runner, commandResults } = gitFactsRunner({
+    root,
+    config,
+    release,
+    productionSha,
+    currentDeploymentSha: productionSha,
+  });
+  await verifyReleaseAssetAnchor({
+    runner,
+    repoRoot: root,
+    repository: config.repository,
+    tag: 'v1.2.3',
+    asset: release.assets[0],
+    allowIdentityCreate: true,
+  });
+  await verifyReleaseAssetAnchor({
+    runner,
+    repoRoot: root,
+    repository: config.repository,
+    tag: 'v1.2.3',
+    asset: release.assets[1],
+    allowIdentityCreate: true,
+  });
+  const runtime = await createRuntime({
+    repoRoot: root,
+    runner,
+    clock: () => new Date('2026-08-28T00:00:00.000Z'),
+    nonce: () => '5da4a280-cd59-43d7-b274-3c666af090c0',
+  });
+  const result = await runtime.controller.adopt({
+    repoRoot: root,
+    config,
+    tag: 'v1.2.3',
+  });
+  assert.equal(result.status, 'authorization_required');
+  assert.equal(result.authorization.facts.productionSha, productionSha);
+  assert.equal(result.authorization.facts.currentDeploymentSha, productionSha);
+  assert.equal(result.authorization.facts.currentDeploymentId, 'dpl_old');
+  assert.equal(commandResults.some(([command, sub]) => command === 'git' && sub === 'push'), false);
+  assert.equal(commandResults.some(([command, sub]) => command === 'vercel' && sub === 'deploy'), false);
+
+  const mismatch = gitFactsRunner({
+    root,
+    config,
+    release,
+    productionSha,
+    currentDeploymentSha: '4'.repeat(40),
+  });
+  const mismatchRuntime = await createRuntime({ repoRoot: root, runner: mismatch.runner });
+  await assert.rejects(
+    mismatchRuntime.controller.adopt({ repoRoot: root, config, tag: 'v1.2.3' }),
+    /adopt_current_production_mismatch/,
+  );
+  assert.equal(
+    mismatch.commandResults.some(([command, sub]) => command === 'git' && sub === 'push'),
+    false,
+  );
+});
+
 test('remote Audit validates the full anchored release and freezes Vercel drift', async () => {
   const { root, config } = await tempRepository();
   await mkdir(path.join(root, '.git'), { recursive: true });
@@ -615,7 +768,7 @@ test('remote Audit validates the full anchored release and freezes Vercel drift'
         stdout: JSON.stringify({
           id: config.vercel.projectId,
           name: 'wrong-project',
-          rootDirectory: null,
+          rootDirectory: config.vercel.rootDirectory,
           link: { productionBranch: 'main' },
           autoAssignCustomDomains: true,
           targets: { production: { id: 'dpl_old', url: 'old.vercel.app' } },
@@ -747,6 +900,33 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
   assert.equal(receipt.releasePublishedAt, release.published_at);
   assert.equal(receipt.artifact.id, 88);
   assert.equal(receipt.artifact.evidenceSha256, preview.authorization.facts.admissionIdentity.sha256);
+
+  const forgedRunner = async (command, args, options) => {
+    if (
+      command === 'gh' &&
+      args[0] === 'api' &&
+      args[1] === `/repos/${config.repository}/actions/runs/123`
+    ) {
+      const remote = JSON.parse((await base.runner(command, args, options)).stdout);
+      remote.head_sha = '4'.repeat(40);
+      return { stdout: JSON.stringify(remote), exitCode: 0 };
+    }
+    return runner(command, args, options);
+  };
+  const forgedRuntime = await createRuntime({
+    repoRoot: root,
+    runner: forgedRunner,
+    clock: () => new Date('2026-08-28T00:00:00.000Z'),
+  });
+  await assert.rejects(
+    forgedRuntime.controller['anchor-admission']({
+      repoRoot: root,
+      config,
+      tag: 'v1.2.3',
+      assetId: 1,
+    }),
+    /hosted_admission_run_binding_mismatch/,
+  );
 });
 
 test('Billing fallback accepts only a failed zero-step run with a billing annotation', async () => {

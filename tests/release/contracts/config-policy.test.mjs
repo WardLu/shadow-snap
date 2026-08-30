@@ -1,10 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   assertReleaseTag,
   scanWorkflowText,
 } from '../../../scripts/release/policy.mjs';
+
+const execFileAsync = promisify(execFile);
 
 test('accepts only v-prefixed semantic release tags', () => {
   assert.doesNotThrow(() => assertReleaseTag('v1.2.3'));
@@ -816,6 +823,42 @@ test('does not reject the read-only admission workflow', () => {
   );
 });
 
+test('accepts fixed read-only quality scripts and validators', () => {
+  const scripts = {
+    lint: 'eslint',
+    test: 'jest',
+    build: 'prisma generate && next build',
+    'test:seo:http': 'node scripts/validate/seo-http-acceptance.mjs',
+    'security:audit': 'node scripts/validate/security-audit.js',
+    'release:check': 'node scripts/validate/release-notes.js',
+    'supabase:control-plane:check':
+      'node scripts/validate/shared-supabase-ledger.mjs && node scripts/validate/shared-supabase-local-contract.mjs',
+  };
+  const text = [
+    'permissions:',
+    '  contents: read',
+    'steps:',
+    '  - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520',
+    '  - run: npm ci --ignore-scripts',
+    '  - run: npm run lint -- --max-warnings=0',
+    '  - run: npm test -- --runInBand',
+    '  - run: npm run build',
+    '  - run: npm run test:seo:http',
+    '  - run: npm run security:audit',
+    '  - run: npm run release:check',
+    '  - run: npm run supabase:control-plane:check',
+    '  - run: node scripts/validate/release-handoff.mjs',
+  ].join('\n');
+
+  assert.deepEqual(
+    scanWorkflowText('.github/workflows/ci.yml', text, {
+      scripts,
+      requireExplicitPermissions: true,
+    }),
+    [],
+  );
+});
+
 test('requires release permissions at workflow level', () => {
   const jobOnly = [
     'jobs:',
@@ -851,6 +894,53 @@ test('rejects release creation and production ref updates', () => {
   );
 });
 
+test('rejects production writes hidden behind command global options', () => {
+  const commands = [
+    'git -C . push origin HEAD:refs/heads/production',
+    'gh api --method=POST /repos/WardLu/shadow-portal/git/refs',
+    'vercel api --method=PATCH /v9/projects/prj_example',
+    'vercel --token token promote dpl.vercel.app',
+    'vercel --scope team rollback dpl.vercel.app',
+    'vercel --cwd . alias dpl.vercel.app prod',
+    'gh --repo WardLu/shadow-portal release create v1.2.3',
+    'gh -R WardLu/shadow-portal release upload v1.2.3 file.json',
+  ];
+  for (const command of commands) {
+    const findings = scanWorkflowText(
+      '.github/workflows/unsafe-global-options.yml',
+      [
+        'permissions:',
+        '  contents: read',
+        '  actions: read',
+        'steps:',
+        `  - run: ${command}`,
+      ].join('\n'),
+    );
+    assert.ok(findings.length > 0, `production write was not rejected: ${command}`);
+  }
+});
+
+test('recursive git tree listing exposes nested workflow paths', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'shadow-policy-git-'));
+  try {
+    const git = (args) => execFileAsync('git', args, { cwd: root });
+    await git(['init', '--quiet', '--initial-branch=main']);
+    await git(['config', 'user.email', 'shadow-policy@example.invalid']);
+    await git(['config', 'user.name', 'Shadow Policy']);
+    await mkdir(path.join(root, '.github/workflows'), { recursive: true });
+    await writeFile(
+      path.join(root, '.github/workflows/nested.yml'),
+      'permissions:\n  contents: read\nsteps: []\n',
+    );
+    await git(['add', '.github/workflows/nested.yml']);
+    await git(['commit', '--quiet', '-m', 'fixture']);
+    const { stdout } = await git(['ls-tree', '-rz', '--full-tree', '-r', 'HEAD']);
+    assert.match(stdout, /\.github\/workflows\/nested\.yml/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('rejects dynamic HTTP, GitHub Script, and third-party deploy bypasses', () => {
   assert.deepEqual(
     scanWorkflowText(
@@ -874,6 +964,27 @@ test('rejects dynamic HTTP, GitHub Script, and third-party deploy bypasses', () 
   );
   assert.deepEqual(
     scanWorkflowText(
+      '.github/workflows/spaced-action.yml',
+      'steps:\n  - uses : evil/action@v1\n',
+    ),
+    ['workflow_dynamic_action_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/quoted-action.yml',
+      'steps:\n  - "uses" : evil/action@v1\n',
+    ),
+    ['workflow_dynamic_action_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/escaped-quoted-action.yml',
+      'steps:\n  - "\\u0075ses" : evil/action@v1\n',
+    ),
+    ['workflow_dynamic_action_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
       '.github/workflows/deploy.yml',
       'steps:\n  - uses: amondnet/vercel-action@v25\n',
     ),
@@ -892,6 +1003,52 @@ test('rejects dynamic HTTP, GitHub Script, and third-party deploy bypasses', () 
       'steps:\n  - run: node scripts/deploy-production.mjs\n',
     ),
     ['workflow_dynamic_local_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/evil-local.yml',
+      'steps:\n  - run: node scripts/evil.mjs\n',
+    ),
+    ['workflow_dynamic_local_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/node-eval.yml',
+      'steps:\n  - run: nodejs -e "require(\\\"child_process\\\").execSync(\\\"git push production\\\")"\n',
+    ),
+    ['workflow_dynamic_local_write_forbidden'],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/npx-evil.yml',
+      'steps:\n  - run: npx --yes evil-package\n',
+    ),
+    ['workflow_dynamic_npm_write_forbidden'],
+  );
+  for (const command of [
+    'run: (npx --yes evil-package)',
+    'run: env npx --yes evil-package',
+    'run: command npx --yes evil-package',
+    'run: "npx --yes evil-package"',
+  ]) {
+    assert.deepEqual(
+      scanWorkflowText('.github/workflows/npx-wrapper.yml', `steps:\n  - ${command}\n`),
+      ['workflow_dynamic_npm_write_forbidden'],
+    );
+  }
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/npx-safe.yml',
+      'steps:\n  - run: npx tsc --noEmit\n',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanWorkflowText(
+      '.github/workflows/safe-local.yml',
+      'permissions:\n  contents: read\nsteps:\n  - run: node scripts/validate/release-handoff.mjs\n',
+    ),
+    [],
   );
 });
 

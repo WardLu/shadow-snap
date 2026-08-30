@@ -8,6 +8,7 @@
   },
   "scripts": {
     "release:admit": "node scripts/release/cli.mjs admit",
+    "release:adopt": "node scripts/release/cli.mjs adopt",
     "release:initialize": "node scripts/release/cli.mjs initialize",
     "release:stage": "node scripts/release/cli.mjs stage",
     "release:promote": "node scripts/release/cli.mjs promote",
@@ -20,7 +21,7 @@
     "release:fail": "node scripts/release/cli.mjs fail",
     "release:anchor-admission": "node scripts/release/cli.mjs anchor-admission",
     "release:install": "node scripts/install-release-controller.mjs",
-    "test:release-controller": "node --test tests/release/contracts/*.test.mjs tests/release/repository-config.test.mjs",
+    "test:release-controller": "shasum -a 256 -c config/controller-files.sha256 && node --test tests/release/contracts/*.test.mjs tests/release/repository-config.test.mjs",
     "validate:static": "node scripts/validate-static-site.mjs"
   }
 }

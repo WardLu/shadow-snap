@@ -1,6 +1,8 @@
 export const RELEASE_STATES = Object.freeze([
   'admission_ready',
   'admitted',
+  'adopt_intent',
+  'adopted',
   'initialize_intent',
   'initialized',
   'initialized_expired',
@@ -20,13 +22,15 @@ export const RELEASE_STATES = Object.freeze([
 const STATE_SET = new Set(RELEASE_STATES);
 const EVIDENCE_GRAPH = new Map([
   ['admission_ready', new Set(['admitted'])],
-  ['admitted', new Set(['initialize_intent', 'stage_intent', 'recovery_admitted'])],
+  ['admitted', new Set(['adopt_intent', 'initialize_intent', 'stage_intent', 'recovery_admitted'])],
+  ['adopt_intent', new Set(['adopted'])],
+  ['adopted', new Set(['stage_intent'])],
   ['initialize_intent', new Set(['initialized'])],
   ['initialized', new Set(['stage_intent', 'renew_intent'])],
   ['stage_intent', new Set(['staged_pending_promote', 'stage_failed'])],
   ['staged_pending_promote', new Set(['promote_intent', 'fail_intent', 'renew_intent'])],
   ['promote_intent', new Set(['current'])],
-  ['current', new Set(['rollback_intent'])],
+  ['current', new Set(['stage_intent', 'rollback_intent'])],
   ['rollback_intent', new Set(['rolled_back'])],
   ['recovery_admitted', new Set(['stage_intent'])],
   ['renew_intent', new Set(['initialized', 'staged_pending_promote'])],
@@ -35,7 +39,9 @@ const EVIDENCE_GRAPH = new Map([
 
 const OPERATIONS = new Map([
   ['admission_ready', new Set(['publish'])],
-  ['admitted', new Set(['initialize', 'stage', 'recover'])],
+  ['admitted', new Set(['adopt', 'initialize', 'stage', 'recover'])],
+  ['adopt_intent', new Set(['resume'])],
+  ['adopted', new Set(['stage'])],
   ['initialize_intent', new Set(['resume'])],
   ['initialized', new Set(['stage', 'expire'])],
   ['initialized_expired', new Set(['renew'])],
@@ -144,6 +150,17 @@ export function reconcileIntent({ intent, facts }) {
       return { action: 'finalize_completion', evidenceType: 'initialized' };
     }
     return freeze('initialize_ref_outside_intent');
+  }
+
+  if (intent.operation === 'adopt') {
+    if (
+      facts.productionSha !== intent.oldSha ||
+      facts.currentDeploymentSha !== intent.oldSha ||
+      facts.currentDeploymentId !== intent.expectedCurrentDeploymentId
+    ) {
+      return freeze('adopt_current_production_changed');
+    }
+    return { action: 'finalize_completion', evidenceType: 'adopted' };
   }
 
   if (intent.operation === 'stage') {

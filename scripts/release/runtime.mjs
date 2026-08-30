@@ -64,6 +64,14 @@ const ADMISSION_ENV_KEYS = [
   'TZ',
 ];
 
+const ADMISSION_BUILD_ENV = Object.freeze({
+  NEXT_PUBLIC_SUPABASE_URL: 'https://shadow-admission.invalid',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'shadow-admission-public-placeholder',
+  SUPABASE_SERVICE_ROLE_KEY: 'shadow-admission-service-placeholder',
+  DATABASE_URL: 'postgresql://127.0.0.1:5432/shadow_admission',
+  DIRECT_URL: 'postgresql://127.0.0.1:5432/shadow_admission',
+});
+
 function admissionChildEnvironment(environment, homeDirectory, temporaryDirectory) {
   const child = {};
   for (const key of ADMISSION_ENV_KEYS) {
@@ -77,6 +85,7 @@ function admissionChildEnvironment(environment, homeDirectory, temporaryDirector
   child.XDG_CACHE_HOME = path.join(homeDirectory, 'cache');
   child.GH_CONFIG_DIR = path.join(homeDirectory, 'gh');
   child.CI = 'true';
+  Object.assign(child, ADMISSION_BUILD_ENV);
   return child;
 }
 
@@ -84,8 +93,30 @@ function fail(reasonCode) {
   throw new Error(reasonCode);
 }
 
+const AUTO_ASSIGN_SETTING_WRITE = Object.freeze({
+  field: 'autoAssignCustomDomains',
+  value: false,
+});
+
+function hasAuthorizedSettingsWrite(settingsWrites) {
+  return Array.isArray(settingsWrites) && settingsWrites.some(
+    (entry) => entry?.field === AUTO_ASSIGN_SETTING_WRITE.field && entry?.value === false,
+  );
+}
+
+function repositorySlug(repository) {
+  const match = /^\s*[A-Za-z0-9_.-]+\/([A-Za-z0-9_.-]+)\s*$/.exec(repository ?? '');
+  if (!match) fail('repository_invalid');
+  return match[1].toLowerCase();
+}
+
+function admissionArtifactName(repository, tag, digest) {
+  return `${repositorySlug(repository)}-release-admission-${tag}-${digest}`;
+}
+
 function completionState(operation) {
   return {
+    adopt: 'adopted',
     initialize: 'initialized',
     stage: 'staged_pending_promote',
     promote: 'current',
@@ -443,7 +474,7 @@ async function verifyHostedRunProof({
     }
     artifact = artifactsPayload.artifacts.find(
       (candidate) =>
-        candidate.name === `shadow-snap-release-admission-${proof.tag}-${admissionDigest}` &&
+        candidate.name === admissionArtifactName(config.repository, proof.tag, admissionDigest) &&
         candidate.expired === false &&
         Number(candidate.size_in_bytes) > 0 &&
         /^sha256:[0-9a-f]{64}$/.test(candidate.digest ?? '') &&
@@ -775,7 +806,7 @@ function assertAdmissionReceipt({
     if (
       !artifact ||
       !Number.isInteger(artifact.id) ||
-      artifact.name !== `shadow-snap-release-admission-${tag}-${admissionIdentity.sha256}` ||
+      artifact.name !== admissionArtifactName(config.repository, tag, admissionIdentity.sha256) ||
       !Number.isInteger(artifact.sizeInBytes) ||
       artifact.sizeInBytes <= 0 ||
       artifact.evidenceSha256 !== admissionIdentity.sha256 ||
@@ -805,7 +836,91 @@ function assertAdmissionReceipt({
   fail('release_admission_receipt_mode_invalid');
 }
 
+function selectProvenanceFields(value, fields) {
+  return Object.fromEntries(fields.map((field) => [field, value?.[field] ?? null]));
+}
+
+async function verifyAnchoredReceiptProvenance({
+  runner,
+  repoRoot,
+  config,
+  admission,
+  admissionDigest,
+  receipt,
+}) {
+  if (receipt.mode === 'hosted') {
+    const provenance = await verifyHostedRunProof({
+      runner,
+      repoRoot,
+      config,
+      targetSha: admission.targetSha,
+      proof: receipt.hostedProof,
+      requireCompleted: true,
+      admissionDigest,
+    });
+    const proofFields = [
+      'repository',
+      'tag',
+      'runId',
+      'runAttempt',
+      'workflowRef',
+      'event',
+      'ref',
+      'refName',
+      'sha',
+    ];
+    if (
+      canonicalJson(selectProvenanceFields(receipt.hostedProof, proofFields)) !==
+      canonicalJson(selectProvenanceFields(provenance, proofFields))
+    ) {
+      fail('hosted_admission_receipt_provenance_mismatch');
+    }
+    const artifactFields = [
+      'id',
+      'name',
+      'sizeInBytes',
+      'evidenceSha256',
+      'archiveDigest',
+      'expired',
+      'workflowRunId',
+    ];
+    if (
+      canonicalJson(selectProvenanceFields(receipt.artifact, artifactFields)) !==
+      canonicalJson(selectProvenanceFields(provenance.artifact, artifactFields))
+    ) {
+      fail('hosted_admission_receipt_artifact_binding_mismatch');
+    }
+    return provenance;
+  }
+  const provenance = await verifyBillingFallback({
+    runner,
+    repoRoot,
+    repository: config.repository,
+    tag: admission.tag,
+    targetSha: admission.targetSha,
+    expectedProof: receipt.billingProof,
+  });
+  const proofFields = [
+    'repository',
+    'tag',
+    'workflowRunId',
+    'workflowRunAttempt',
+    'jobId',
+    'checkRunId',
+    'annotationSha256',
+  ];
+  if (
+    canonicalJson(selectProvenanceFields(receipt.billingProof, proofFields)) !==
+    canonicalJson(selectProvenanceFields(provenance, proofFields))
+  ) {
+    fail('billing_fallback_receipt_provenance_mismatch');
+  }
+  return provenance;
+}
+
 const CHANNEL_BLOCKING_STATES = new Set([
+  'adopt_intent',
+  'adopted',
   'initialize_intent',
   'initialized',
   'initialized_expired',
@@ -945,6 +1060,9 @@ export function assertResumeIntentAuthority({ snapshot, found }) {
 }
 
 function expectedStableCurrent(snapshot, state = snapshot.state) {
+  if (['adopt_intent', 'adopted'].includes(state)) {
+    return intentForOperation(snapshot, 'adopt')?.expectedCurrentDeploymentId ?? null;
+  }
   if (['initialize_intent', 'initialized', 'initialized_expired'].includes(state)) {
     return intentForOperation(snapshot, 'initialize')?.expectedCurrentDeploymentId ?? null;
   }
@@ -975,6 +1093,8 @@ function latestAcceptedCurrent(channel) {
     for (const asset of entry.snapshot.decodedAssets) {
       const deployment = ['current', 'rolled_back'].includes(asset.value.state)
         ? asset.value.operationResult?.deployment
+        : asset.value.state === 'adopted'
+          ? asset.value.operationResult?.deployment
         : asset.value.state === 'initialize_intent'
           ? { id: asset.value.currentDeploymentId, url: asset.value.currentDeploymentUrl }
           : null;
@@ -989,8 +1109,13 @@ function latestAcceptedProduction(channel) {
   const accepted = [];
   for (const entry of channel) {
     for (const asset of entry.snapshot.decodedAssets) {
-      if (['current', 'rolled_back'].includes(asset.value.state)) {
-        accepted.push({ sha: entry.targetSha, createdAt: asset.identity.createdAt });
+      if (['current', 'rolled_back', 'adopted'].includes(asset.value.state)) {
+        accepted.push({
+          sha: asset.value.state === 'adopted'
+            ? asset.value.operationResult?.productionSha
+            : entry.targetSha,
+          createdAt: asset.identity.createdAt,
+        });
       }
     }
   }
@@ -1350,6 +1475,8 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
     const productionSha = await readRemoteBranchSha({ runner, repoRoot });
     const settingsMayBePending = new Set([
       'admitted',
+      'adopt_intent',
+      'adopted',
       'initialize_intent',
       'initialized',
       'initialized_expired',
@@ -1368,15 +1495,36 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
           deploymentId: project.current.id,
         })
       : null;
+    const currentDeploymentSha =
+      currentDeployment?.meta?.releaseCommitSha ??
+      currentDeployment?.meta?.githubCommitSha ??
+      currentDeployment?.meta?.gitCommitSha ??
+      null;
     const channel = await readRepositoryChannel({ runner, repoRoot, config, clock });
     validateReleaseChannel({ entries: channel, targetTag: tag, operation: 'audit' });
     const channelCurrent = latestAcceptedCurrent(channel);
     const channelProduction = latestAcceptedProduction(channel);
 
-    if (snapshot.state === 'initialize_intent') {
+    if (snapshot.state === 'adopt_intent') {
+      const adoptIntent = intentForOperation(snapshot, 'adopt');
+      if (
+        productionSha !== adoptIntent?.oldSha ||
+        currentDeploymentSha !== adoptIntent?.oldSha ||
+        project.current?.id !== adoptIntent?.expectedCurrentDeploymentId
+      ) fail('audit_adopt_baseline_mismatch');
+    } else if (snapshot.state === 'initialize_intent') {
       if (productionSha !== null && productionSha !== target.targetSha) {
         fail('audit_initialize_ref_outside_intent');
       }
+    } else if (snapshot.state === 'adopted') {
+      const adopted = [...snapshot.decodedAssets]
+        .reverse()
+        .find(({ value }) => value.state === 'adopted')?.value;
+      if (
+        productionSha !== adopted?.operationResult?.productionSha ||
+        currentDeploymentSha !== adopted?.operationResult?.currentDeploymentSha ||
+        project.current?.id !== adopted?.operationResult?.currentDeploymentId
+      ) fail('audit_adopted_baseline_mismatch');
     } else if (!['admitted', 'recovery_admitted'].includes(snapshot.state) && productionSha !== target.targetSha) {
       fail('audit_production_ref_mismatch');
     }
@@ -1403,6 +1551,8 @@ async function remoteAudit({ runner, repoRoot, config, tag, clock }) {
     if (
       [
         'initialize_intent',
+        'adopt_intent',
+        'adopted',
         'initialized',
         'initialized_expired',
         'stage_intent',
@@ -1569,6 +1719,14 @@ async function readAdmissionAnchorFacts({
       admission,
       admissionIdentity: anchored.identity,
     });
+    provenance = await verifyAnchoredReceiptProvenance({
+      runner,
+      repoRoot,
+      config,
+      admission,
+      admissionDigest: anchored.digest,
+      receipt: existingReceipt.value,
+    });
     receiptIdentity = existingReceipt.identity;
   } else if (admission.mode === 'hosted') {
     provenance = await verifyHostedRunProof({
@@ -1642,8 +1800,11 @@ async function readOperationFacts({
     runner,
     repoRoot,
     config,
-    requireReleaseSettings: !['initialize', 'resume'].includes(operation),
+    requireReleaseSettings: !['adopt', 'initialize', 'resume', 'rollback'].includes(operation),
   });
+  if (operation === 'rollback' && project.productionBranch !== config.vercel.productionBranch) {
+    fail('vercel_production_branch_mismatch');
+  }
   const currentDeployment = project.current?.id
     ? await inspectDeployment({
         runner,
@@ -1774,8 +1935,24 @@ async function readOperationFacts({
     return base;
   }
 
+  if (operation === 'adopt') {
+    if (snapshot.state !== 'admitted') fail('adopt_state_invalid');
+    if (!/^[0-9a-f]{40}$/.test(productionSha ?? '')) fail('adopt_production_missing');
+    if (!/^[0-9a-f]{40}$/.test(currentDeploymentSha ?? '')) {
+      fail('adopt_current_commit_missing');
+    }
+    if (currentDeploymentSha !== productionSha) fail('adopt_current_production_mismatch');
+    const ancestry = await runner(
+      'git',
+      ['merge-base', '--is-ancestor', productionSha, target.targetSha],
+      { cwd: repoRoot, allowExitCodes: [0, 1] },
+    );
+    if (ancestry.exitCode !== 0) fail('adopt_production_not_target_ancestor');
+    return base;
+  }
+
   if (operation === 'stage') {
-    if (!['admitted', 'initialized', 'recovery_admitted'].includes(snapshot.state)) {
+    if (!['admitted', 'adopted', 'initialized', 'current', 'recovery_admitted'].includes(snapshot.state)) {
       fail('stage_state_invalid');
     }
     if (!productionSha) fail('stage_production_missing');
@@ -1787,8 +1964,10 @@ async function readOperationFacts({
     if (!expectedCurrent || project.current?.id !== expectedCurrent) {
       fail('stage_current_deployment_mismatch');
     }
-    const expectedProduction = snapshot.state === 'initialized'
-      ? target.targetSha
+    const expectedProduction = snapshot.state === 'adopted'
+      ? intentForOperation(snapshot, 'adopt')?.oldSha
+      : snapshot.state === 'initialized'
+        ? target.targetSha
       : snapshot.state === 'recovery_admitted'
         ? [...snapshot.decodedAssets].reverse().find(({ value }) => value.state === 'recovery_admitted')?.value?.operationResult?.recoveryProductionSha
         : latestAcceptedProduction(channel);
@@ -1876,6 +2055,8 @@ async function readOperationFacts({
           ? value?.operationResult?.deployment
           : value.state === 'rolled_back'
             ? value?.operationResult?.deployment
+          : value.state === 'adopted'
+            ? value?.operationResult?.deployment
           : value.state === 'initialize_intent'
             ? { id: value.currentDeploymentId, url: value.currentDeploymentUrl }
             : null;
@@ -1906,6 +2087,8 @@ async function readOperationFacts({
       ...base,
       rollbackDeploymentId: rollbackTarget.id,
       rollbackDeploymentUrl: rollbackTarget.url,
+      settingsWrites: [AUTO_ASSIGN_SETTING_WRITE],
+      settingsMatch: project.autoAssignCustomDomains === config.vercel.autoAssignCustomDomains,
     };
   }
 
@@ -1982,6 +2165,7 @@ async function readOperationFacts({
       configHash: found.value.configHash,
       matchingDeployments,
       resumeDeployment,
+      settingsWrites: underlying === 'rollback' ? [AUTO_ASSIGN_SETTING_WRITE] : [],
       settingsMatch:
         project.productionBranch === 'production' &&
         project.autoAssignCustomDomains === false,
@@ -2082,8 +2266,11 @@ async function recheckIntentFacts({
     runner,
     repoRoot,
     config,
-    requireReleaseSettings: operation !== 'initialize',
+    requireReleaseSettings: !['adopt', 'initialize', 'rollback'].includes(operation),
   });
+  if (operation === 'rollback' && project.productionBranch !== config.vercel.productionBranch) {
+    fail('vercel_production_branch_mismatch');
+  }
   const recheckedCurrentDeployment = project.current?.id
     ? await inspectDeployment({
         runner,
@@ -2114,6 +2301,10 @@ async function recheckIntentFacts({
     productionDomains: config.vercel.productionDomains,
     vercelCliVersion,
   };
+  if (operation === 'rollback') {
+    rechecked.settingsMatch = project.autoAssignCustomDomains === config.vercel.autoAssignCustomDomains;
+    rechecked.settingsWrites = facts.settingsWrites;
+  }
   for (const key of Object.keys(rechecked)) {
     if (canonicalJson(rechecked[key]) !== canonicalJson(facts[key])) {
       fail(`intent_facts_changed:${key}`);
@@ -2382,6 +2573,19 @@ export async function createRuntime({
           productionAcceptance,
         };
       }
+      if (operation === 'adopt') {
+        return {
+          completionState: 'adopted',
+          productionSha: facts.productionSha,
+          currentDeploymentId: facts.currentDeploymentId,
+          currentDeploymentSha: facts.currentDeploymentSha,
+          deployment: {
+            id: facts.currentDeploymentId,
+            url: facts.currentDeploymentUrl,
+          },
+          adopted: true,
+        };
+      }
       if (operation === 'rollback') {
         await rollbackDeployment({
           runner,
@@ -2396,7 +2600,12 @@ export async function createRuntime({
           requireReleaseSettings: false,
         });
         if (project.autoAssignCustomDomains !== false) {
-          await restoreAutoAssignSetting({ runner, repoRoot, config });
+          await restoreAutoAssignSetting({
+            runner,
+            repoRoot,
+            config,
+            authorized: hasAuthorizedSettingsWrite(facts.settingsWrites),
+          });
         }
         project = await readVercelProjectFacts({ runner, repoRoot, config });
         if (project.current?.id !== facts.rollbackDeploymentId) {
@@ -2455,7 +2664,18 @@ export async function createRuntime({
             });
           }
           if (action.evidenceType === 'initialized') {
-            operationResult.productionSha = facts.intent.targetSha;
+            operationResult.productionSha =
+              facts.intent.targetSha;
+          }
+          if (action.evidenceType === 'adopted') {
+            operationResult.productionSha = facts.intent.oldSha;
+            operationResult.currentDeploymentId = facts.intent.expectedCurrentDeploymentId;
+            operationResult.currentDeploymentSha = facts.intent.oldSha;
+            operationResult.deployment = {
+              id: facts.intent.expectedCurrentDeploymentId,
+              url: facts.intent.currentDeploymentUrl,
+            };
+            operationResult.adopted = true;
           }
           return operationResult;
         }
@@ -2590,7 +2810,14 @@ export async function createRuntime({
             requireReleaseSettings: false,
           });
           if (restored.autoAssignCustomDomains !== false) {
-            await restoreAutoAssignSetting({ runner, repoRoot, config });
+            await restoreAutoAssignSetting({
+              runner,
+              repoRoot,
+              config,
+              authorized: hasAuthorizedSettingsWrite(
+                original.settingsWrites ?? facts.settingsWrites,
+              ),
+            });
           }
           restored = await readVercelProjectFacts({ runner, repoRoot, config });
           if (restored.current?.id !== original.targetDeploymentId) {
@@ -2708,6 +2935,7 @@ export async function createRuntime({
       }
       if (operation === 'recover') completion.supersedes = facts.supersedes;
       const prefix = {
+        adopted: 'production-adoption',
         current: 'production-acceptance',
         rolled_back: 'production-rollback',
         recovery_admitted: 'recovery-admitted',

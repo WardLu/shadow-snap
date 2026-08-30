@@ -237,8 +237,16 @@ test('transition table rejects bypassing separate release phases', () => {
     true,
   );
   assert.equal(
+    validateTransition({ from: 'admitted', operation: 'adopt', facts: {} }).allowed,
+    true,
+  );
+  assert.equal(
     validateTransition({ from: 'admitted', operation: 'promote', facts: {} }).reasonCode,
     'transition_forbidden',
+  );
+  assert.equal(
+    validateTransition({ from: 'current', operation: 'stage', facts: {} }).allowed,
+    true,
   );
   assert.equal(
     validateTransition({ from: 'stage_failed', operation: 'stage', facts: {} }).reasonCode,
@@ -255,6 +263,58 @@ test('transition table rejects bypassing separate release phases', () => {
   assert.equal(
     validateTransition({ from: 'staged_expired', operation: 'promote', facts: {} }).reasonCode,
     'transition_forbidden',
+  );
+  assert.equal(
+    deriveReleaseState(
+      {
+        releasePublished: true,
+        pendingTtlSeconds: 3600,
+        evidence: [
+          { state: 'admitted', fromState: 'admission_ready', createdAt: '2026-08-28T00:00:00.000Z' },
+          { state: 'recovery_admitted', fromState: 'admitted', createdAt: '2026-08-28T00:10:00.000Z' },
+        ],
+      },
+      new Date('2026-08-28T00:20:00.000Z'),
+    ).state,
+    'recovery_admitted',
+  );
+  assert.equal(
+    deriveReleaseState(
+      {
+        releasePublished: true,
+        pendingTtlSeconds: 3600,
+        evidence: [
+          { state: 'admitted', fromState: 'admission_ready', createdAt: '2026-08-28T00:00:00.000Z' },
+          { state: 'initialize_intent', fromState: 'admitted', createdAt: '2026-08-28T00:01:00.000Z' },
+          { state: 'initialized', fromState: 'initialize_intent', createdAt: '2026-08-28T00:02:00.000Z' },
+          { state: 'stage_intent', fromState: 'initialized', createdAt: '2026-08-28T00:03:00.000Z' },
+          { state: 'staged_pending_promote', fromState: 'stage_intent', createdAt: '2026-08-28T00:04:00.000Z' },
+          { state: 'promote_intent', fromState: 'staged_pending_promote', createdAt: '2026-08-28T00:05:00.000Z' },
+          { state: 'current', fromState: 'promote_intent', createdAt: '2026-08-28T00:06:00.000Z' },
+          { state: 'stage_intent', fromState: 'current', createdAt: '2026-08-28T00:07:00.000Z' },
+          { state: 'staged_pending_promote', fromState: 'stage_intent', createdAt: '2026-08-28T00:08:00.000Z' },
+        ],
+      },
+      new Date('2026-08-28T00:09:00.000Z'),
+    ).state,
+    'staged_pending_promote',
+  );
+  assert.equal(
+    deriveReleaseState(
+      {
+        releasePublished: true,
+        pendingTtlSeconds: 3600,
+        evidence: [
+          { state: 'admitted', fromState: 'admission_ready', createdAt: '2026-08-28T00:00:00.000Z' },
+          { state: 'adopt_intent', fromState: 'admitted', createdAt: '2026-08-28T00:01:00.000Z' },
+          { state: 'adopted', fromState: 'adopt_intent', createdAt: '2026-08-28T00:02:00.000Z' },
+          { state: 'stage_intent', fromState: 'adopted', createdAt: '2026-08-28T00:03:00.000Z' },
+          { state: 'staged_pending_promote', fromState: 'stage_intent', createdAt: '2026-08-28T00:04:00.000Z' },
+        ],
+      },
+      new Date('2026-08-28T00:05:00.000Z'),
+    ).state,
+    'staged_pending_promote',
   );
 });
 
@@ -295,6 +355,42 @@ test('initialize resume either continues the same write or finalizes it', () => 
       },
     }),
     { action: 'finalize_completion', evidenceType: 'initialized' },
+  );
+});
+
+test('adopt resume only finalizes the exact pre-existing production baseline', () => {
+  const baselineSha = '1'.repeat(40);
+  const intent = {
+    operation: 'adopt',
+    state: 'adopt_intent',
+    repository: 'WardLu/shadow-snap',
+    tag: 'v1.2.3',
+    oldSha: baselineSha,
+    expectedCurrentDeploymentId: 'dpl_old',
+    targetSha: '2'.repeat(40),
+    configHash: 'a'.repeat(64),
+    nonce: 'nonce-adopt',
+  };
+  const facts = {
+    repository: intent.repository,
+    tag: intent.tag,
+    targetSha: intent.targetSha,
+    configHash: intent.configHash,
+    state: intent.state,
+    productionSha: baselineSha,
+    currentDeploymentSha: baselineSha,
+    currentDeploymentId: 'dpl_old',
+  };
+  assert.deepEqual(
+    reconcileIntent({ intent, facts }),
+    { action: 'finalize_completion', evidenceType: 'adopted' },
+  );
+  assert.deepEqual(
+    reconcileIntent({
+      intent,
+      facts: { ...facts, currentDeploymentSha: '3'.repeat(40) },
+    }),
+    { action: 'freeze', reasonCode: 'adopt_current_production_changed' },
   );
 });
 
