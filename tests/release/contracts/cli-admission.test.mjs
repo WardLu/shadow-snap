@@ -33,6 +33,17 @@ test('CLI parses only explicit release arguments', () => {
     parseCliArgs(['anchor-admission', '--tag', 'v1.2.3', '--asset-id', '42', '--authorize', 'a'.repeat(64)]).authorize,
     'a'.repeat(64),
   );
+  assert.deepEqual(parseCliArgs(['adopt', '--tag', 'v1.2.3']), {
+    command: 'adopt',
+    tag: 'v1.2.3',
+    authorize: undefined,
+    deployment: undefined,
+    hosted: false,
+    localOnly: false,
+    billingFallback: false,
+    intent: undefined,
+    assetId: undefined,
+  });
   assert.throws(() => parseCliArgs(['audit', '--tag', 'v1.2.3', '--local-only']), /cli_argument_conflict/);
   assert.throws(() => parseCliArgs(['audit']), /cli_argument_required:tag/);
   assert.deepEqual(parseCliArgs(['audit', '--local-only']), {

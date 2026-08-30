@@ -88,16 +88,58 @@ function stableValue(value) {
   return value;
 }
 
-const EXPECTED_ADMISSION_COMMANDS = [
-  ['npm', 'ci', '--ignore-scripts'],
+const EXPECTED_ADMISSION_COMMANDS_BY_REPOSITORY = new Map([
   [
-    'node',
-    '--test',
-    'tests/release/contracts/*.test.mjs',
-    'tests/release/repository-config.test.mjs',
+    'WardLu/shadow-snap',
+    [
+      ['npm', 'ci', '--ignore-scripts'],
+      [
+        'node',
+        '--test',
+        'tests/release/contracts/*.test.mjs',
+        'tests/release/repository-config.test.mjs',
+      ],
+      ['node', 'scripts/validate-static-site.mjs'],
+    ],
   ],
-  ['node', 'scripts/validate-static-site.mjs'],
-];
+  [
+    'WardLu/shadow-portal',
+    [
+      ['npm', 'ci', '--ignore-scripts'],
+      ['npm', 'run', 'lint', '--', '--max-warnings=0'],
+      ['npm', 'test', '--', '--runInBand'],
+      ['npm', 'run', 'build'],
+      ['npm', 'run', 'test:seo:http'],
+      ['npm', 'run', 'security:audit'],
+      ['npm', 'run', 'release:check'],
+      ['npm', 'run', 'supabase:control-plane:check'],
+      ['npm', 'run', 'test:release-controller'],
+    ],
+  ],
+  [
+    'WardLu/shadow-card',
+    [
+      ['npm', 'ci', '--ignore-scripts'],
+      ['npm', 'run', 'release:check'],
+      ['npm', 'run', 'test:release'],
+      ['npm', 'run', 'lint'],
+      ['npx', 'tsc', '--noEmit'],
+      ['npm', 'run', 'build'],
+      ['npm', 'run', 'test:release-controller'],
+    ],
+  ],
+  [
+    'WardLu/shadow-size',
+    [
+      ['npm', '--prefix', 'merchant-admin', 'ci', '--ignore-scripts'],
+      ['npm', '--prefix', 'merchant-admin/widget', 'ci', '--ignore-scripts'],
+      ['npm', '--prefix', 'merchant-admin', 'run', 'release:check'],
+      ['npm', '--prefix', 'merchant-admin', 'run', 'test:release'],
+      ['npm', '--prefix', 'merchant-admin', 'run', 'ci'],
+      ['npm', 'run', 'test:release-controller'],
+    ],
+  ],
+]);
 
 export function validateReleaseConfig(value) {
   assertExactKeys(value, ROOT_KEYS, 'release_config_key_unknown');
@@ -178,9 +220,11 @@ export function validateReleaseConfig(value) {
       fail('admission_command_invalid');
     }
   }
+  const expectedAdmissionCommands = EXPECTED_ADMISSION_COMMANDS_BY_REPOSITORY.get(value.repository);
   if (
+    !expectedAdmissionCommands ||
     JSON.stringify(stableValue(value.admissionCommands)) !==
-    JSON.stringify(stableValue(EXPECTED_ADMISSION_COMMANDS))
+      JSON.stringify(stableValue(expectedAdmissionCommands))
   ) {
     fail('admission_commands_not_allowlisted');
   }

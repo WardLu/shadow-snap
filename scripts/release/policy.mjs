@@ -31,8 +31,18 @@ const DYNAMIC_WRITE_METHOD = /(?:^|\s)(?:-X|--request|--method)\s*(?:POST|PUT|PA
 const SENSITIVE_WORKFLOW_TOKEN = /(?:secrets\.[A-Za-z0-9_]+|GITHUB_TOKEN|GH_TOKEN|VERCEL_TOKEN)/i;
 const PRODUCTION_API_HOST = /(?:api\.github\.com|api\.vercel\.com|\/repos\/[^\s]+\/(?:git\/refs|releases|deployments)|\/v\d+\/(?:projects|deployments))/i;
 const DYNAMIC_HTTP_CLIENT = /\b(?:curl|wget)\b|\b(?:fetch|axios\.(?:post|put|patch|delete)|https?\.request)\s*\(/i;
-const APPROVED_ACTION = /^(?:actions\/(?:checkout|setup-node|cache|upload-artifact|download-artifact)|github\/codeql-action\/(?:init|analyze|autobuild))@(?:v?[0-9]+|[0-9a-f]{40})$/i;
-const SAFE_NPM_SCRIPTS = new Set(['release:admit']);
+const APPROVED_ACTION = /^(?:actions\/(?:checkout|setup-node|cache|upload-artifact|download-artifact)|github\/codeql-action\/(?:init|analyze|autobuild)|supabase\/setup-cli)@(?:v?[0-9]+|[0-9a-f]{40})$/i;
+const SAFE_NPM_SCRIPTS = new Set([
+  'release:admit',
+  'lint',
+  'test',
+  'build',
+  'test:seo:http',
+  'security:audit',
+  'release:check',
+  'supabase:control-plane:check',
+  'test:release-controller',
+]);
 
 // A workflow may only reach a local executable through an explicitly reviewed
 // read-only entrypoint.  Merely allowlisting the npm script name is not enough:
@@ -41,6 +51,20 @@ const SAFE_NPM_SCRIPTS = new Set(['release:admit']);
 // behind an unreviewed file.
 const EXACT_READ_ONLY_SCRIPT_COMMANDS = new Map([
   ['release:admit', /^node\s+scripts\/release\/cli\.mjs\s+admit\s*$/],
+  ['lint', /^eslint(?:\s+--[A-Za-z0-9=._-]+)*\s*$/],
+  ['test', /^jest(?:\s+--[A-Za-z0-9=._-]+)*\s*$/],
+  ['build', /^(?:prisma\s+generate\s+&&\s+next\s+build|next\s+build)\s*$/],
+  ['test:seo:http', /^node\s+scripts\/validate\/seo-http-acceptance\.mjs\s*$/],
+  ['security:audit', /^node\s+scripts\/validate\/security-audit\.js\s*$/],
+  ['release:check', /^node\s+scripts\/validate\/release-notes\.(?:js|mjs)\s*$/],
+  [
+    'supabase:control-plane:check',
+    /^node\s+scripts\/validate\/shared-supabase-ledger\.mjs\s+&&\s+node\s+scripts\/validate\/shared-supabase-local-contract\.mjs\s*$/,
+  ],
+  [
+    'test:release-controller',
+    /^shasum\s+-a\s+256\s+-c\s+config\/controller-files\.sha256\s+&&\s+node\s+--test\s+tests\/release\/contracts\/\*\.test\.mjs\s+tests\/release\/repository-config\.test\.mjs\s*$/,
+  ],
 ]);
 
 const NPM_OPTIONS_WITH_VALUE = new Set([
@@ -257,6 +281,177 @@ function parseNpmInvocations(text) {
   return { invocations, invalidOption, dynamicLauncher };
 }
 
+const COMMAND_SEPARATORS = new Set(['&&', '||', ';', '|', '&']);
+const GIT_GLOBAL_OPTIONS_WITH_VALUE = new Set([
+  '-C',
+  '-c',
+  '--config-env',
+  '--exec-path',
+  '--git-dir',
+  '--namespace',
+  '--super-prefix',
+  '--upload-pack',
+  '--work-tree',
+]);
+const GH_GLOBAL_OPTIONS_WITH_VALUE = new Set([
+  '--cache',
+  '--hostname',
+  '--jq',
+  '--repo',
+  '--template',
+]);
+const VERCEL_GLOBAL_OPTIONS_WITH_VALUE = new Set([
+  '--cwd',
+  '--name',
+  '--project',
+  '--scope',
+  '--team',
+  '--token',
+]);
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const WRITE_DATA_OPTIONS = new Set([
+  '-d',
+  '--data',
+  '--data-binary',
+  '--data-raw',
+  '--field',
+  '--form',
+  '--input',
+  '--raw-field',
+]);
+
+function commandExecutable(value) {
+  return (value ?? '').replace(/[;,]$/, '').split('/').at(-1);
+}
+
+function commandBoundary(value) {
+  return COMMAND_SEPARATORS.has(value) || /^(?:&&|\|\||;|\|)&?$/.test(value ?? '');
+}
+
+function skipCommandOption(tokens, index, optionsWithValue) {
+  const value = tokens[index]?.value ?? '';
+  if (value === '--') return index + 1;
+  if (!value.startsWith('-') || value === '-') return index;
+  const option = value.split('=', 1)[0];
+  if (!value.includes('=') && optionsWithValue.has(option)) return index + 2;
+  return index + 1;
+}
+
+function findSubcommand(tokens, start, names, optionsWithValue) {
+  let index = start;
+  while (index < tokens.length && !commandBoundary(tokens[index]?.value)) {
+    const value = commandExecutable(tokens[index]?.value);
+    if (names.has(value)) return index;
+    if (value.startsWith('-')) {
+      index = skipCommandOption(tokens, index, optionsWithValue);
+      continue;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function commandArguments(tokens, start) {
+  const values = [];
+  for (let index = start; index < tokens.length; index += 1) {
+    const value = tokens[index]?.value ?? '';
+    if (commandBoundary(value)) break;
+    values.push(value);
+  }
+  return values;
+}
+
+function hasWriteMethod(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const value = args[index] ?? '';
+    const inlineMethod = value.match(/^(?:-X|--request|--method)=(POST|PUT|PATCH|DELETE)$/i);
+    if (inlineMethod || (['-X', '--request', '--method'].includes(value) && WRITE_METHODS.has((args[index + 1] ?? '').toUpperCase()))) {
+      return true;
+    }
+    const shortMethod = value.match(/^-X(POST|PUT|PATCH|DELETE)$/i);
+    if (shortMethod || WRITE_DATA_OPTIONS.has(value.split('=', 1)[0])) return true;
+  }
+  return false;
+}
+
+function hasProductionRef(args) {
+  return args.some((value) => {
+    const normalized = (value ?? '').replace(/[;,]$/, '');
+    return (
+      normalized === 'production' ||
+      normalized.endsWith(':production') ||
+      normalized.includes('refs/heads/production')
+    );
+  });
+}
+
+function scanCommandWrites(text) {
+  const tokens = tokenizeShell(text);
+  const findings = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const executable = commandExecutable(tokens[index]?.value);
+    if (executable === 'git') {
+      const subcommand = findSubcommand(
+        tokens,
+        index + 1,
+        new Set(['branch', 'push', 'tag', 'update-ref']),
+        GIT_GLOBAL_OPTIONS_WITH_VALUE,
+      );
+      if (subcommand !== -1) {
+        const verb = commandExecutable(tokens[subcommand]?.value);
+        if (verb === 'push' || verb === 'update-ref' || hasProductionRef(commandArguments(tokens, subcommand + 1))) {
+          if (hasProductionRef(commandArguments(tokens, subcommand + 1))) {
+            findings.push('workflow_production_ref_write');
+          }
+        }
+      }
+    }
+    if (executable === 'gh') {
+      const subcommand = findSubcommand(
+        tokens,
+        index + 1,
+        new Set(['api', 'release']),
+        GH_GLOBAL_OPTIONS_WITH_VALUE,
+      );
+      if (subcommand !== -1) {
+        const verb = commandExecutable(tokens[subcommand]?.value);
+        const args = commandArguments(tokens, subcommand + 1);
+        if (verb === 'api' && hasWriteMethod(args)) {
+          findings.push('workflow_dynamic_gh_api_write_forbidden');
+        }
+        if (
+          verb === 'release' &&
+          findSubcommand(
+            tokens,
+            subcommand + 1,
+            new Set(['create', 'upload', 'edit', 'delete']),
+            GH_GLOBAL_OPTIONS_WITH_VALUE,
+          ) !== -1
+        ) {
+          findings.push('workflow_release_write');
+        }
+      }
+    }
+    if (executable === 'vercel') {
+      const subcommand = findSubcommand(
+        tokens,
+        index + 1,
+        new Set(['api', 'deploy', 'promote', 'rollback', 'alias']),
+        VERCEL_GLOBAL_OPTIONS_WITH_VALUE,
+      );
+      if (subcommand !== -1) {
+        const verb = commandExecutable(tokens[subcommand]?.value);
+        if (['deploy', 'promote', 'rollback', 'alias'].includes(verb)) {
+          findings.push('workflow_vercel_production_write');
+        } else if (verb === 'api' && hasWriteMethod(commandArguments(tokens, subcommand + 1))) {
+          findings.push('workflow_vercel_production_write');
+        }
+      }
+    }
+  }
+  return findings;
+}
+
 function hasDynamicNpmInvocation(invocations) {
   return invocations.some(({ target }) => target?.dynamic);
 }
@@ -267,39 +462,6 @@ function hasReadOnlyScriptEntrypoint(name, command) {
 
 function fail(reasonCode) {
   throw new Error(reasonCode);
-}
-
-function stripYamlStringsAndComments(line) {
-  let result = '';
-  let quote = null;
-  let escaped = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (quote) {
-      result += ' ';
-      if (quote === '"' && escaped) {
-        escaped = false;
-      } else if (quote === '"' && character === '\\') {
-        escaped = true;
-      } else if (quote === '"' && character === '"') {
-        quote = null;
-      } else if (quote === "'" && character === "'" && line[index + 1] === "'") {
-        result += ' ';
-        index += 1;
-      } else if (quote === "'" && character === "'") {
-        quote = null;
-      }
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-      result += ' ';
-      continue;
-    }
-    if (character === '#' && (index === 0 || /\s/.test(line[index - 1]))) break;
-    result += character;
-  }
-  return result;
 }
 
 function stripYamlComment(line) {
@@ -795,6 +957,7 @@ export function scanWorkflowText(
   const normalized = text.replace(/\\\r?\n/g, ' ').replace(/\s+/g, ' ');
   const npmParse = parseNpmInvocations(normalized);
   const npmInvocations = npmParse.invocations;
+  findings.push(...scanCommandWrites(normalized));
   if (npmParse.invalidOption) findings.push('workflow_npm_option_forbidden');
   if (hasYamlAnchorOrAlias(text)) {
     findings.push('workflow_yaml_alias_forbidden');
@@ -805,9 +968,29 @@ export function scanWorkflowText(
   if (hasUnsupportedPermissionStructure(text)) {
     findings.push('workflow_permission_structure_forbidden');
   }
-  const uses = [...text.matchAll(/\buses:\s*['"]?([^\s'"#]+)/gi)].map((match) => match[1]);
+  const uses = [...text.matchAll(/["']?\buses["']?\s*:\s*['"]?([^\s'"#]+)/gi)].map(
+    (match) => match[1],
+  );
   if (uses.some((action) => !APPROVED_ACTION.test(action))) {
     findings.push('workflow_dynamic_action_forbidden');
+  }
+  const escapedQuotedKeys = [
+    ...text.matchAll(
+      /(["'])([^"'\\]*(?:\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|x[0-9a-fA-F]{2})[^"'\\]*)+)\1\s*:\s*['"]?([^\s'"#]+)/g,
+    ),
+  ];
+  for (const [, quote, rawKey, action] of escapedQuotedKeys) {
+    let key = rawKey;
+    if (quote === '"') {
+      try {
+        key = JSON.parse(`"${rawKey}"`);
+      } catch {
+        continue;
+      }
+    }
+    if (key === 'uses' && !APPROVED_ACTION.test(action)) {
+      findings.push('workflow_dynamic_action_forbidden');
+    }
   }
   const permissionValuePattern =
     /(?:^|[\n,{])\s*["']?(?:actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|repository-projects|security-events|statuses|metadata)["']?\s*:\s*["']?([A-Za-z-]+)["']?/gi;
@@ -855,10 +1038,40 @@ export function scanWorkflowText(
   ) {
     findings.push('workflow_dynamic_gh_api_write_forbidden');
   }
-  const unsafeLocalRunner = /\brun:\s*(?:\||>)?[\s\S]*?\b(?:node|python\d*|bash|sh|npx)\s+[^\r\n]*(?:deploy|production|promote|rollback|publish|release)[^\r\n]*/i;
+  const unsafeLocalRunner = /\brun:\s*(?:\||>)?[\s\S]*?\b(?:node|python\d*|bash|sh|npx)\s+[^\r\n]*(?:deploy|production|promote|rollback|publish|scripts\/release\/)[^\r\n]*/i;
   const safeAdmissionCommand = /^\s*(?:(?:-\s+)?run:\s+)?node\s+scripts\/release\/cli\.mjs\s+admit\s+--tag\s+(?:["']?\$[A-Za-z_][A-Za-z0-9_]*["']?|v[0-9A-Za-z.-]+)\s+--hosted\s*$/gim;
   if (unsafeLocalRunner.test(text.replace(safeAdmissionCommand, ''))) {
     findings.push('workflow_dynamic_local_write_forbidden');
+  }
+  const safeNodeScripts = new Set([
+    'scripts/release/cli.mjs',
+    'scripts/validate/release-handoff.mjs',
+    'scripts/validate/shared-supabase-ledger.mjs',
+    'scripts/validate/shared-supabase-local-contract.mjs',
+  ]);
+  const directNodeScripts = [...text.matchAll(
+    /\bnode(?:js)?\s+(?:--[A-Za-z0-9_=-]+\s+)*((?:\.{0,2}\/)?scripts\/[A-Za-z0-9_./-]+\.(?:mjs|cjs|js))/gi,
+  )].map((match) => match[1].replace(/^\.\//, ''));
+  if (directNodeScripts.some((script) => !safeNodeScripts.has(script))) {
+    findings.push('workflow_dynamic_local_write_forbidden');
+  }
+  if (/\b(?:node|nodejs)\s+(?:[^\r\n]*\s)?(?:-e|-p|--eval|--print|--input-type(?:=|\s+))/i.test(text)) {
+    findings.push('workflow_dynamic_local_write_forbidden');
+  }
+  const safeNpxCommands = new Set([
+    'npx tsc --noEmit',
+    'npx prisma validate',
+    'npx playwright install --with-deps chromium',
+    'npx playwright test e2e/auth.spec.ts e2e/card.spec.ts',
+  ]);
+  const npxCommands = [...text.matchAll(/\bnpx\s+[^\r\n]+/gim)].map((match) =>
+    match[0]
+      .replace(/\s+#.*$/, '')
+      .replace(/[\]})'"`]+$/, '')
+      .trim(),
+  );
+  if (npxCommands.some((command) => !safeNpxCommands.has(command))) {
+    findings.push('workflow_dynamic_npm_write_forbidden');
   }
   if (npmParse.dynamicLauncher || hasDynamicNpmInvocation(npmInvocations)) {
     findings.push('workflow_dynamic_npm_write_forbidden');
@@ -878,7 +1091,7 @@ export function scanWorkflowText(
     }
     const name = invocation.target?.value;
     if (!name || invocation.target?.dynamic) continue;
-    if (/(?:^|:)(?:release:(?!admit$)[A-Za-z0-9._-]+|ship|deploy|publish|promote|rollback)$/.test(name)) {
+    if (/(?:^|:)(?:release:(?:initialize|stage|promote|rollback|resume|recover|renew|unlock|fail|anchor-admission)|ship|deploy|publish|promote|rollback)$/.test(name)) {
       findings.push('workflow_npm_write_forbidden');
     }
   }
@@ -1020,7 +1233,7 @@ export async function verifyTargetTree({ runner, repoRoot, tag, config }) {
     targetPackageScripts = null;
   }
 
-  const tree = await git(runner, repoRoot, ['ls-tree', '-rz', '--full-tree', targetSha]);
+  const tree = await git(runner, repoRoot, ['ls-tree', '-rz', '--full-tree', '-r', targetSha]);
   const artifactManifest = buildArtifactManifest(tree.stdout);
   const workflowPaths = artifactManifest.entries
     .map((entry) => entry.path)

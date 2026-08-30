@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 
 const COMMANDS = new Set([
   'admit',
+  'adopt',
   'initialize',
   'stage',
   'promote',
@@ -29,6 +30,7 @@ const BOOLEAN_FLAGS = new Map([
 ]);
 const COMMAND_SCHEMAS = new Map([
   ['admit', { allowed: new Set(['tag', 'hosted', 'billingFallback']), required: new Set(['tag']) }],
+  ['adopt', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
   ['initialize', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
   ['stage', { allowed: new Set(['tag', 'authorize']), required: new Set(['tag']) }],
   ['promote', { allowed: new Set(['tag', 'authorize', 'deployment']), required: new Set(['tag', 'deployment']) }],

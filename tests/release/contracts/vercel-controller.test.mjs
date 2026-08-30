@@ -11,6 +11,7 @@ import {
   rollbackDeployment,
   runProductionAcceptance,
   runStagedAcceptance,
+  restoreAutoAssignSetting,
   validateVercelProjectFacts,
   verifyVercelCliVersion,
 } from '../../../scripts/release/vercel.mjs';
@@ -29,17 +30,19 @@ test('project verification rejects identity, branch, settings, root, and domain 
   const valid = {
     id: config.vercel.projectId,
     name: config.vercel.projectName,
-    rootDirectory: null,
+    rootDirectory: config.vercel.rootDirectory,
     link: { productionBranch: 'production' },
     autoAssignCustomDomains: false,
-    domains: ['sie.shadow.wang', 'snap.shadow.wang', 'shadow-snap.vercel.app'],
+    domains: [...config.vercel.productionDomains, `${config.vercel.projectName}.vercel.app`],
     targets: { production: { id: 'dpl_old', url: 'old.vercel.app' } },
   };
   assert.equal(validateVercelProjectFacts({ project: valid, config }).current.id, 'dpl_old');
+  const mismatchedRootDirectory =
+    config.vercel.rootDirectory === null ? 'merchant-admin' : null;
   for (const project of [
     { ...valid, id: 'prj_wrong' },
     { ...valid, name: 'wrong-project' },
-    { ...valid, rootDirectory: 'merchant-admin' },
+    { ...valid, rootDirectory: mismatchedRootDirectory },
     { ...valid, link: { productionBranch: 'main' } },
     { ...valid, autoAssignCustomDomains: true },
     { ...valid, domains: ['snap.shadow.wang'] },
@@ -53,6 +56,7 @@ test('project verification rejects identity, branch, settings, root, and domain 
 
 test('staged deployment uses an exact detached worktree and never promotes', async () => {
   const config = await configFixture();
+  const stagedUrl = `${config.vercel.projectName}-new.vercel.app`;
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), 'shadow-vercel-repo-'));
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'shadow-vercel-stage-'));
   const calls = [];
@@ -72,7 +76,7 @@ test('staged deployment uses an exact detached worktree and never promotes', asy
     if (command === 'vercel' && args[0] === 'build') return { stdout: '', exitCode: 0 };
     if (command === 'vercel' && args[0] === 'deploy') {
       return {
-        stdout: JSON.stringify({ id: 'dpl_new', url: 'shadow-snap-new.vercel.app' }),
+        stdout: JSON.stringify({ id: 'dpl_new', url: stagedUrl }),
         exitCode: 0,
       };
     }
@@ -80,7 +84,7 @@ test('staged deployment uses an exact detached worktree and never promotes', asy
       return {
         stdout: JSON.stringify({
           id: 'dpl_new',
-          url: 'shadow-snap-new.vercel.app',
+          url: stagedUrl,
           projectId: config.vercel.projectId,
           target: 'production',
           readyState: 'READY',
@@ -106,7 +110,7 @@ test('staged deployment uses an exact detached worktree and never promotes', asy
     tempRoot,
   });
   assert.equal(deployment.id, 'dpl_new');
-  assert.equal(deployment.url, 'shadow-snap-new.vercel.app');
+  assert.equal(deployment.url, stagedUrl);
 
   const deployCall = calls.find(
     ({ command, args }) => command === 'vercel' && args[0] === 'deploy',
@@ -123,6 +127,8 @@ test('staged deployment uses an exact detached worktree and never promotes', asy
 
 test('promote and rollback are separate exact-target commands', async () => {
   const config = await configFixture();
+  const stagedUrl = `https://${config.vercel.projectName}-new.vercel.app`;
+  const previousUrl = `https://${config.vercel.projectName}-old.vercel.app`;
   const calls = [];
   const runner = async (command, args, options) => {
     calls.push({ command, args, options });
@@ -135,22 +141,51 @@ test('promote and rollback are separate exact-target commands', async () => {
     runner,
     repoRoot: '/repo',
     config,
-    deploymentUrl: 'https://shadow-snap-new.vercel.app',
+    deploymentUrl: stagedUrl,
   });
   await rollbackDeployment({
     runner,
     repoRoot: '/repo',
     config,
-    deploymentUrl: 'https://shadow-snap-old.vercel.app',
+    deploymentUrl: previousUrl,
   });
   assert.deepEqual(calls.filter(({ args }) => ['promote', 'rollback'].includes(args[0])).map(({ args }) => args.slice(0, 3)), [
-    ['promote', 'https://shadow-snap-new.vercel.app/', '--yes'],
-    ['rollback', 'https://shadow-snap-old.vercel.app/', '--yes'],
+    ['promote', `${stagedUrl}/`, '--yes'],
+    ['rollback', `${previousUrl}/`, '--yes'],
   ]);
+});
+
+test('Vercel settings restoration requires explicit authorization', async () => {
+  const config = await configFixture();
+  const calls = [];
+  const runner = async (command, args) => {
+    calls.push({ command, args });
+    if (command === 'vercel' && args[0] === '--version') {
+      return { stdout: `Vercel CLI ${config.vercel.cliVersion}\n${config.vercel.cliVersion}\n` };
+    }
+    return { stdout: '{}' };
+  };
+  await assert.rejects(
+    restoreAutoAssignSetting({
+      runner,
+      repoRoot: '/repo',
+      config,
+      authorized: false,
+    }),
+    /vercel_settings_write_authorization_missing/,
+  );
+  await restoreAutoAssignSetting({
+    runner,
+    repoRoot: '/repo',
+    config,
+    authorized: true,
+  });
+  assert.equal(calls.filter(({ command }) => command === 'vercel').length, 2);
 });
 
 test('pins the Vercel CLI and records staged and production HTTP acceptance', async () => {
   const config = await configFixture();
+  const stagedUrl = `${config.vercel.projectName}-new.vercel.app`;
   const response = (url, body = config.acceptance.bodyIncludes) =>
     `HTTP/2 200\r\ncontent-type: text/html\r\nstrict-transport-security: max-age=63072000\r\n\r\n${body}\nSHADOW_ACCEPTANCE_META:200\t${url}\t0\n`;
   const runner = async (command, args) => {
@@ -158,7 +193,7 @@ test('pins the Vercel CLI and records staged and production HTTP acceptance', as
       return { stdout: `Vercel CLI ${config.vercel.cliVersion}\n${config.vercel.cliVersion}\n`, exitCode: 0 };
     }
     if (command === 'vercel' && args[0] === 'curl') {
-      return { stdout: response('https://shadow-snap-new.vercel.app/'), exitCode: 0 };
+      return { stdout: response(`https://${stagedUrl}/`), exitCode: 0 };
     }
     if (command === 'curl') return { stdout: response(args.at(-1)), exitCode: 0 };
     throw new Error(`unexpected:${command}:${args.join(':')}`);
@@ -171,7 +206,7 @@ test('pins the Vercel CLI and records staged and production HTTP acceptance', as
     runner,
     repoRoot: '/repo',
     config,
-    deploymentUrl: 'shadow-snap-new.vercel.app',
+    deploymentUrl: stagedUrl,
   });
   assert.equal(staged.kind, 'staged');
   assert.match(staged.responseSha256, /^[0-9a-f]{64}$/);
@@ -194,12 +229,26 @@ test('pins the Vercel CLI and records staged and production HTTP acceptance', as
       runner: async (command, args) =>
         command === 'vercel' && args[0] === '--version'
           ? { stdout: `Vercel CLI ${config.vercel.cliVersion}\n${config.vercel.cliVersion}\n` }
-          : { stdout: response('https://shadow-snap-new.vercel.app/', 'wrong body') },
+          : { stdout: response(`https://${stagedUrl}/`, 'wrong body') },
       repoRoot: '/repo',
       config,
-      deploymentUrl: 'shadow-snap-new.vercel.app',
+      deploymentUrl: stagedUrl,
     }),
     /staged_acceptance_body_marker_missing/,
+  );
+  await assert.rejects(
+    runProductionAcceptance({
+      runner: async (command, args) =>
+        command === 'curl'
+          ? {
+              stdout:
+                `HTTP/2 200\r\ncontent-type: text/html\r\n\r\nstrict-transport-security: fake\n${config.acceptance.bodyIncludes}\nSHADOW_ACCEPTANCE_META:200\t${args.at(-1)}\t0\n`,
+            }
+          : { stdout: `Vercel CLI ${config.vercel.cliVersion}\n${config.vercel.cliVersion}\n` },
+      repoRoot: '/repo',
+      config,
+    }),
+    /production_acceptance_required_header_missing:strict-transport-security/,
   );
 });
 
@@ -216,7 +265,7 @@ test('controller uploads intent before the external write and requires fresh aut
     currentDeploymentId: 'dpl_old',
     teamId: config.vercel.teamId,
     projectId: config.vercel.projectId,
-    rootDirectory: null,
+    rootDirectory: config.vercel.rootDirectory,
     productionDomains: config.vercel.productionDomains,
   };
   const lease = { release: async () => events.push('lease_released') };

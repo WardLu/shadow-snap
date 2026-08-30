@@ -63,12 +63,30 @@ function parseAcceptanceOutput(output, config, reasonPrefix, allowedHosts) {
     marker[3] !== '0' ||
     !allowedHosts.includes(effectiveUrl.hostname)
   ) fail(`${reasonPrefix}_effective_url_invalid`);
+  const responseWithoutMarker = output.slice(0, marker.index);
+  const statusMatches = [
+    ...responseWithoutMarker.matchAll(/(?:^|\r?\n)(HTTP\/\d(?:\.\d)?\s+\d{3}[^\r\n]*)/g),
+  ];
+  const statusMatch = statusMatches.at(-1);
+  if (!statusMatch) fail(`${reasonPrefix}_headers_invalid`);
+  const headerStart = statusMatch.index + (statusMatch[0].startsWith('\n') ? 1 : 0);
+  const lfDelimiter = responseWithoutMarker.indexOf('\n\n', headerStart);
+  const crlfDelimiter = responseWithoutMarker.indexOf('\r\n\r\n', headerStart);
+  const delimiterEnd =
+    crlfDelimiter >= 0 && (lfDelimiter < 0 || crlfDelimiter < lfDelimiter)
+      ? crlfDelimiter + 4
+      : lfDelimiter >= 0
+        ? lfDelimiter + 2
+        : -1;
+  if (delimiterEnd < 0) fail(`${reasonPrefix}_headers_invalid`);
+  const headerBlock = responseWithoutMarker.slice(headerStart, delimiterEnd);
+  const body = responseWithoutMarker.slice(delimiterEnd);
   for (const header of config.acceptance.requiredHeaders) {
-    if (!(new RegExp(`(?:^|\\r?\\n)${header}:`, 'i')).test(output)) {
+    if (!(new RegExp(`(?:^|\\r?\\n)${header}:`, 'i')).test(headerBlock)) {
       fail(`${reasonPrefix}_required_header_missing:${header}`);
     }
   }
-  if (!output.includes(config.acceptance.bodyIncludes)) {
+  if (!body.includes(config.acceptance.bodyIncludes)) {
     fail(`${reasonPrefix}_body_marker_missing`);
   }
   return {
@@ -411,7 +429,8 @@ export async function rollbackDeployment({
   });
 }
 
-export async function restoreAutoAssignSetting({ runner, repoRoot, config }) {
+export async function restoreAutoAssignSetting({ runner, repoRoot, config, authorized = false }) {
+  if (authorized !== true) fail('vercel_settings_write_authorization_missing');
   await verifyVercelCliVersion({ runner, repoRoot, config });
   await runner(
     'vercel',

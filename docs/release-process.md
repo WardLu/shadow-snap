@@ -7,6 +7,7 @@ Shadow Snap 使用本地 Release Controller，将代码集成、Release 选择�
 ```bash
 # 只在 GitHub Actions 的只读 Admission job 中执行
 npm run release:admit -- --tag v1.2.0 --hosted
+npm run release:adopt -- --tag v1.2.0
 npm run release:initialize -- --tag v1.2.0
 npm run release:stage -- --tag v1.2.0
 npm run release:promote -- --tag v1.2.0 --deployment https://deployment.vercel.app
@@ -35,7 +36,9 @@ Controller 固定使用 Vercel CLI `50.28.0`。Admission 在准确 tag SHA 的�
 3. 单独授权创建并推送准确 tag。tag 只运行 Admission，不发布 Release、不部署。
 4. Review hosted artifact；若托管任务确认为准确 tag、同一 SHA 的 Billing/Spending Limit 零步骤，才可运行带证据的本地 fallback。fallback 必须绑定 repository、tag、head ref、workflow path/ref、event、run attempt、job、check run 和 billing annotation，并分页排除其他成功、非终态或真实执行过代码的 run；真实测试失败不能 fallback，也不能称为托管 CI 通过。
 5. 单独授权发布 GitHub Release，并附加 hash 匹配的 `release-admission.json`。必须保留上传响应中的原始 GitHub asset ID，立即运行 `release:anchor-admission --asset-id <原始 ID>`。该命令只在首次锚定时复核托管 run/artifact 或 Billing fallback 证据，并上传长期保存的 `release-admission-receipt.json`；未完成原始 ID 和 receipt 锚定时，Initialize/Audit fail closed。
-6. 单独授权 Initialize。它只创建 `production` ref，并确认没有 deployment。
+6. 根据远端现状选择且只能选择一种首次接管方式：
+   - `production` ref 不存在时，单独授权 Initialize。它只创建指向目标 Release SHA 的 `production` ref，并确认没有 deployment。
+   - `production` ref 已存在时，禁止删除、重建、强推或使用 Initialize；改为单独授权 Adopt。Adopt 只有在现有 production SHA 与线上 Current deployment 的 commit SHA 完全相同、该 SHA 是目标 Release 的祖先、Release/配置/Project 身份全部匹配时，才写入 `adopted` evidence。它不修改 ref、不部署，也不改变线上 Current。
 7. 单独授权在 Vercel Dashboard 将 Production Branch 改为 `production`，并把 Auto-assign Custom Production Domains 设为关闭。线上 Current 必须保持不变。
 8. 单独授权 Stage。Controller strict-fast-forward `production`，从准确 Release SHA 构建并运行 `vercel deploy --prebuilt --prod --skip-domain`。staged deployment 必须 READY、metadata 完整，并通过受保护 URL 的 HTTP 200 与页面标识检查。
 9. 验收 staged URL 后，另行授权 Promote。Promote 前重读所有 ref、Release、evidence、Project、Current 和 deployment identity；Promote 后两个生产域名都必须通过 HTTPS 200 与页面标识检查，才写入 `production-acceptance`。
@@ -46,7 +49,7 @@ Controller 固定使用 Vercel CLI `50.28.0`。Admission 在准确 tag SHA 的�
 
 `npm run release:install` 将仓库绑定到当前真实 checkout、Git common dir 和主机级 registry，并自检普通 ref 放行、无 capability 的 `production` 推送拒绝。同一台主机上的第二个 clone 或 worktree 不能接管同一仓库。macOS registry 默认位于 `~/Library/Application Support/Shadow Release Controller/registry.json`，权限为 `0600`。
 
-进程在 intent 后崩溃时，Resume 只能继续当前 evidence chain 最后一条 authoritative intent：请求 digest 必须等于该 intent 的 digest，已完成、被 rollback 或被 recovery supersede 的历史 intent 一律拒绝。Initialize ref 已创建则只补 completion；Stage ref 已推进但没有 deployment 则继续同一 build/deploy；已有唯一匹配 deployment 则只补 completion；Promote/Rollback 已发生则核对 Current 和设置后补证据。多个 deployment 候选、目标变化或未知状态一律 freeze。
+进程在 intent 后崩溃时，Resume 只能继续当前 evidence chain 最后一条 authoritative intent：请求 digest 必须等于该 intent 的 digest，已完成、被 rollback 或被 recovery supersede 的历史 intent 一律拒绝。Adopt 仅在 production SHA、Current deployment ID/commit 与 intent 中的既有基线仍完全相同时补 `adopted` completion；Initialize ref 已创建则只补 completion；Stage ref 已推进但没有 deployment 则继续同一 build/deploy；已有唯一匹配 deployment 则只补 completion；Promote/Rollback 已发生则核对 Current 和设置后补证据。多个 deployment 候选、目标变化或未知状态一律 freeze。
 
 `initialized_expired` 和 `staged_expired` 不允许直接 Stage 或 Promote。`release:renew` 需要新的两步授权：initialized 只追加同一 tag/SHA 的续期 evidence；staged 还会重新检查同一 deployment 并再次运行 staged HTTP 验收，不能更换 deployment。若明确放弃过期 staged deployment，`release:fail` 通过独立授权写入 `stage_failed`。`stage_failed`、未完成的 `stage_intent` 或 `rolled_back` 则必须由一个新的已 Admission Release，用旧 Release 当前阻断 evidence 的准确 SHA-256 执行 Recover；Recover 只能解除一个明确阻断源。若进程崩溃留下过期本地 lease，`release:unlock` 先输出绑定 lease nonce/内容的授权摘要，确认后将原 lease 整体移动到 `stale-leases/` 留存，而不是删除取证。
 

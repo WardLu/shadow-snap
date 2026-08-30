@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
   chmod,
-  mkdir,
   readFile,
   rename,
   stat,
@@ -205,6 +204,7 @@ export function createReleaseController({
         deploymentId: facts.stagedDeploymentId ?? null,
         deploymentUrl: facts.stagedDeploymentUrl ?? null,
         currentDeploymentId: facts.currentDeploymentId ?? null,
+        currentDeploymentUrl: facts.currentDeploymentUrl ?? null,
         targetDeploymentId: facts.rollbackDeploymentId ?? null,
         targetDeploymentUrl: facts.rollbackDeploymentUrl ?? null,
         renewState: facts.renewState ?? null,
@@ -257,6 +257,7 @@ export function createReleaseController({
   return {
     admit: (request) => operations.admit(request),
     audit: (request) => operations.audit(request),
+    adopt: (request) => execute('adopt', request),
     initialize: (request) => execute('initialize', request),
     stage: (request) => execute('stage', request),
     promote: (request) => execute('promote', request),

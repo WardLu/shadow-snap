@@ -60,11 +60,46 @@ test('rejects unknown keys and unsafe paths', async () => {
   );
 });
 
+test('accepts a fixed read-only admission command profile for another repository', async () => {
+  const config = JSON.parse(
+    await readFile(path.join(repoRoot, 'config/release-production.json'), 'utf8'),
+  );
+  assert.doesNotThrow(() =>
+    validateReleaseConfig({
+      ...config,
+      repository: 'WardLu/shadow-portal',
+      admissionCommands: [
+        ['npm', 'ci', '--ignore-scripts'],
+        ['npm', 'run', 'lint', '--', '--max-warnings=0'],
+        ['npm', 'test', '--', '--runInBand'],
+        ['npm', 'run', 'build'],
+        ['npm', 'run', 'test:seo:http'],
+        ['npm', 'run', 'security:audit'],
+        ['npm', 'run', 'release:check'],
+        ['npm', 'run', 'supabase:control-plane:check'],
+        ['npm', 'run', 'test:release-controller'],
+      ],
+    }),
+  );
+});
+
+test('rejects an invalid repository identity', async () => {
+  const config = JSON.parse(
+    await readFile(path.join(repoRoot, 'config/release-production.json'), 'utf8'),
+  );
+  assert.throws(
+    () => validateReleaseConfig({ ...config, repository: 'WardLu' }),
+    /repository_invalid/,
+  );
+});
+
 test('package scripts expose every release phase without dependencies', async () => {
   const pkg = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
   assert.deepEqual(Object.keys(pkg.dependencies ?? {}), []);
+  assert.match(pkg.scripts['test:release-controller'], /shasum -a 256 -c config\/controller-files\.sha256/);
   for (const script of [
     'release:admit',
+    'release:adopt',
     'release:initialize',
     'release:stage',
     'release:promote',
