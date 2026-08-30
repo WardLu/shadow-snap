@@ -156,7 +156,9 @@ export function reconcileIntent({ intent, facts }) {
     if (
       facts.productionSha !== intent.oldSha ||
       facts.currentDeploymentSha !== intent.oldSha ||
-      facts.currentDeploymentId !== intent.expectedCurrentDeploymentId
+      facts.currentDeploymentId !== intent.expectedCurrentDeploymentId ||
+      facts.currentDeploymentReadyState !== intent.currentDeploymentReadyState ||
+      facts.currentDeploymentTarget !== intent.currentDeploymentTarget
     ) {
       return freeze('adopt_current_production_changed');
     }

@@ -268,6 +268,19 @@ export async function inspectDeployment({ runner, repoRoot, config, deploymentId
   return deployment;
 }
 
+export function deploymentCommitSha(deployment) {
+  const values = [
+    deployment?.meta?.releaseCommitSha,
+    deployment?.meta?.githubCommitSha,
+    deployment?.meta?.gitCommitSha,
+  ].filter((value) => value !== null && value !== undefined && value !== '');
+  if (values.some((value) => typeof value !== 'string' || !/^[0-9a-f]{40}$/.test(value))) {
+    fail('vercel_deployment_commit_sha_invalid');
+  }
+  if (new Set(values).size > 1) fail('vercel_deployment_commit_sha_conflict');
+  return values[0] ?? null;
+}
+
 export async function listMatchingStagedDeployments({
   runner,
   repoRoot,
@@ -291,7 +304,7 @@ export async function listMatchingStagedDeployments({
     .filter(
       (deployment) =>
         deployment.projectId === config.vercel.projectId &&
-        deployment.meta?.releaseCommitSha === targetSha &&
+        deploymentCommitSha(deployment) === targetSha &&
         deployment.meta?.releaseTag === tag &&
         deployment.meta?.releaseConfigHash === configHash &&
         (deployment.readyState ?? deployment.state) === 'READY',
@@ -375,7 +388,7 @@ export async function createStagedDeployment({
     if (
       deployment.target !== 'production' ||
       deployment.readyState !== 'READY' ||
-      deployment.meta?.releaseCommitSha !== targetSha ||
+      deploymentCommitSha(deployment) !== targetSha ||
       deployment.meta?.releaseTag !== tag ||
       deployment.meta?.releaseConfigHash !== configHash
     ) {

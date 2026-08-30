@@ -172,6 +172,9 @@ function gitFactsRunner({
   release,
   productionSha = null,
   currentDeploymentSha = '1'.repeat(40),
+  currentDeploymentMeta = null,
+  currentDeploymentReadyState = 'READY',
+  currentDeploymentTarget = 'production',
 } = {}) {
   const commandResults = [];
   const runner = async (command, args) => {
@@ -342,9 +345,9 @@ function gitFactsRunner({
             id: 'dpl_old',
             url: 'old.vercel.app',
             projectId: config.vercel.projectId,
-            target: 'production',
-            readyState: 'READY',
-            meta: { githubCommitSha: currentDeploymentSha },
+            target: currentDeploymentTarget,
+            readyState: currentDeploymentReadyState,
+            meta: currentDeploymentMeta ?? { githubCommitSha: currentDeploymentSha },
           }),
           exitCode: 0,
           stderrDigest: '0'.repeat(64),
@@ -660,6 +663,44 @@ test('Adopt preview binds an existing production baseline without remote writes'
     mismatch.commandResults.some(([command, sub]) => command === 'git' && sub === 'push'),
     false,
   );
+
+  const conflictingMetadata = gitFactsRunner({
+    root,
+    config,
+    release,
+    productionSha,
+    currentDeploymentMeta: {
+      releaseCommitSha: productionSha,
+      githubCommitSha: '4'.repeat(40),
+    },
+  });
+  const conflictingMetadataRuntime = await createRuntime({
+    repoRoot: root,
+    runner: conflictingMetadata.runner,
+  });
+  await assert.rejects(
+    conflictingMetadataRuntime.controller.adopt({ repoRoot: root, config, tag: 'v1.2.3' }),
+    /vercel_deployment_commit_sha_conflict/,
+  );
+
+  for (const invalidDeployment of [
+    { currentDeploymentReadyState: 'BUILDING' },
+    { currentDeploymentTarget: null },
+  ]) {
+    const invalid = gitFactsRunner({
+      root,
+      config,
+      release,
+      productionSha,
+      currentDeploymentSha: productionSha,
+      ...invalidDeployment,
+    });
+    const invalidRuntime = await createRuntime({ repoRoot: root, runner: invalid.runner });
+    await assert.rejects(
+      invalidRuntime.controller.adopt({ repoRoot: root, config, tag: 'v1.2.3' }),
+      /adopt_current_deployment_invalid/,
+    );
+  }
 });
 
 test('authorized Adopt accepts its own newly uploaded intent as the latest evidence', async () => {

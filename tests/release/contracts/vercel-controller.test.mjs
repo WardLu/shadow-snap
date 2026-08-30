@@ -7,6 +7,7 @@ import path from 'node:path';
 import { createReleaseController } from '../../../scripts/release/controller.mjs';
 import {
   createStagedDeployment,
+  deploymentCommitSha,
   promoteDeployment,
   rollbackDeployment,
   runProductionAcceptance,
@@ -18,6 +19,25 @@ import {
 import { loadReleaseConfig } from '../../../scripts/release/config.mjs';
 
 const TARGET_SHA = '2'.repeat(40);
+
+test('deployment commit metadata must be valid and internally consistent', () => {
+  assert.equal(
+    deploymentCommitSha({
+      meta: { releaseCommitSha: TARGET_SHA, githubCommitSha: TARGET_SHA },
+    }),
+    TARGET_SHA,
+  );
+  assert.throws(
+    () => deploymentCommitSha({
+      meta: { releaseCommitSha: TARGET_SHA, githubCommitSha: '3'.repeat(40) },
+    }),
+    /vercel_deployment_commit_sha_conflict/,
+  );
+  assert.throws(
+    () => deploymentCommitSha({ meta: { gitCommitSha: 'not-a-sha' } }),
+    /vercel_deployment_commit_sha_invalid/,
+  );
+});
 
 async function configFixture() {
   return loadReleaseConfig(
