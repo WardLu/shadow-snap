@@ -662,6 +662,141 @@ test('Adopt preview binds an existing production baseline without remote writes'
   );
 });
 
+test('authorized Adopt accepts its own newly uploaded intent as the latest evidence', async () => {
+  const { root, config } = await tempRepository();
+  const productionSha = '1'.repeat(40);
+  const admission = {
+    schemaVersion: 1,
+    state: 'admission_ready',
+    repository: config.repository,
+    tag: 'v1.2.3',
+    targetSha: TARGET_SHA,
+    mainSnapshot: MAIN_SHA,
+    configHash: hashReleaseConfig(config),
+    mode: 'hosted',
+    commands: [],
+    workflowPaths: ['.github/workflows/release.yml'],
+    artifactManifest: ARTIFACT_MANIFEST,
+    releaseContract: releaseContract(config),
+    hostedProof: hostedProof(config),
+    createdAt: '2026-08-27T23:00:00.000Z',
+  };
+  const admissionRaw = canonicalJson(admission);
+  const receiptRaw = canonicalJson(hostedReceipt(config, admissionRaw));
+  await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission.json'),
+    admissionRaw,
+    { mode: 0o600 },
+  );
+  await writeFile(
+    path.join(root, '.release-state/v1.2.3/release-admission-receipt.json'),
+    receiptRaw,
+    { mode: 0o600 },
+  );
+  const release = {
+    tag_name: 'v1.2.3',
+    draft: false,
+    prerelease: false,
+    published_at: '2026-08-27T23:30:00.000Z',
+    assets: [
+      {
+        id: 1,
+        name: 'release-admission.json',
+        size: Buffer.byteLength(admissionRaw),
+        created_at: '2026-08-27T23:00:00.000Z',
+      },
+      {
+        id: 2,
+        name: 'release-admission-receipt.json',
+        size: Buffer.byteLength(receiptRaw),
+        created_at: '2026-08-27T23:30:30.000Z',
+      },
+    ],
+  };
+  const remoteAssets = new Map([[1, admissionRaw], [2, receiptRaw]]);
+  let nextAssetId = 3;
+  const base = gitFactsRunner({
+    root,
+    config,
+    release,
+    productionSha,
+    currentDeploymentSha: productionSha,
+  });
+  const runner = async (command, args, options) => {
+    if (command === 'gh' && args[0] === 'release' && args[1] === 'upload') {
+      const filePath = args[3];
+      const raw = await readFile(filePath, 'utf8');
+      const id = nextAssetId;
+      nextAssetId += 1;
+      remoteAssets.set(id, raw);
+      release.assets.push({
+        id,
+        name: path.basename(filePath),
+        size: Buffer.byteLength(raw),
+        created_at: `2026-08-28T00:00:0${id}.000Z`,
+      });
+      return { stdout: '', exitCode: 0, stderrDigest: '0'.repeat(64) };
+    }
+    if (command === 'gh' && args[0] === 'api') {
+      const match = new RegExp(`/repos/${config.repository}/releases/assets/(\\d+)$`).exec(args[1]);
+      if (match && remoteAssets.has(Number(match[1]))) {
+        return {
+          stdout: remoteAssets.get(Number(match[1])),
+          exitCode: 0,
+          stderrDigest: '0'.repeat(64),
+        };
+      }
+    }
+    return base.runner(command, args, options);
+  };
+  for (const asset of release.assets) {
+    await verifyReleaseAssetAnchor({
+      runner,
+      repoRoot: root,
+      repository: config.repository,
+      tag: 'v1.2.3',
+      asset,
+      allowIdentityCreate: true,
+    });
+  }
+  await installControllerBinding({
+    runner,
+    repoRoot: root,
+    config,
+    registryPath: path.join(root, 'host-registry.json'),
+  });
+  let now = Date.parse('2026-08-28T00:00:00.000Z');
+  const runtime = await createRuntime({
+    repoRoot: root,
+    runner,
+    clock: () => new Date((now += 1000)),
+    nonce: () => '4ca52220-91db-4dd8-a315-15ecfcd87ca5',
+  });
+  const preview = await runtime.controller.adopt({
+    repoRoot: root,
+    config,
+    tag: 'v1.2.3',
+  });
+  const result = await runtime.controller.adopt({
+    repoRoot: root,
+    config,
+    tag: 'v1.2.3',
+    authorize: preview.authorizationDigest,
+  });
+  assert.equal(result.status, 'completed');
+  assert.equal(result.operationResult.adopted, true);
+  assert.equal(result.operationResult.productionSha, productionSha);
+  assert.equal(
+    release.assets.some((asset) => asset.name.startsWith('release-intent-adopt-')),
+    true,
+  );
+  assert.equal(
+    release.assets.some((asset) => asset.name.startsWith('production-adoption-')),
+    true,
+  );
+});
+
 test('repository channel accepts an immutable Adopt intent asset after upload', async () => {
   const { root, config } = await tempRepository();
   const admission = {

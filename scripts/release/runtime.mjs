@@ -2251,6 +2251,9 @@ async function recheckIntentFacts({
     ({ digest }) => digest === intentDigest,
   );
   if (!decodedIntent) fail('intent_asset_not_found_after_upload');
+  if (snapshot.lastEvidenceCreatedAt !== intent.createdAt) {
+    fail('intent_not_latest_after_upload');
+  }
   if (
     canonicalJson(decodedIntent.identity) !== canonicalJson(intentAsset)
   ) {
@@ -2287,7 +2290,9 @@ async function recheckIntentFacts({
     mainSha: target.mainSha,
     configHash: snapshot.configHash,
     artifactManifest: target.artifactManifest,
-    lastEvidenceCreatedAt: snapshot.lastEvidenceCreatedAt,
+    // The uploaded intent is now the latest evidence. Compare the baseline it
+    // captured before upload, not the intent's own timestamp, with preview facts.
+    lastEvidenceCreatedAt: intent.lastEvidenceCreatedAt,
     productionSha,
     currentDeploymentId: project.current?.id ?? null,
     currentDeploymentUrl: project.current?.url ?? null,
