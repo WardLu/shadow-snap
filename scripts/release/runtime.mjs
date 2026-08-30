@@ -145,7 +145,7 @@ function assertArtifactManifest(manifest) {
       entry.path.includes('\0')
     ) fail('release_artifact_manifest_invalid');
   }
-  const digest = sha256(`${JSON.stringify(manifest.entries)}\n`);
+  const digest = sha256(canonicalJson(manifest.entries));
   if (digest !== manifest.sha256) fail('release_artifact_manifest_digest_mismatch');
   return manifest;
 }

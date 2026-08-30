@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { hashReleaseConfig, validateReleaseConfig } from '../../../scripts/release/config.mjs';
+import { canonicalJson, sha256 } from '../../../scripts/release/evidence.mjs';
 import { installControllerBinding } from '../../../scripts/release/lock.mjs';
 import {
   assertResumeIntentAuthority,
@@ -37,9 +38,7 @@ const ARTIFACT_MANIFEST = {
   schemaVersion: 1,
   format: 'git-ls-tree-z-v1',
   entryCount: ARTIFACT_ENTRIES.length,
-  sha256: createHash('sha256')
-    .update(`${JSON.stringify(ARTIFACT_ENTRIES)}\n`, 'utf8')
-    .digest('hex'),
+  sha256: sha256(canonicalJson(ARTIFACT_ENTRIES)),
   entries: ARTIFACT_ENTRIES,
 };
 function repositorySlug(repository) {
@@ -811,7 +810,10 @@ test('anchor-admission persists hosted run and artifact proof in a durable recei
     hostedProof: hostedProof(config),
     createdAt: '2026-08-27T23:00:00.000Z',
   };
-  const admissionRaw = JSON.stringify(admission);
+  // Hosted admission evidence is canonicalized before it is uploaded. The
+  // manifest digest must therefore survive recursive object-key sorting and a
+  // subsequent parse instead of depending on JavaScript insertion order.
+  const admissionRaw = canonicalJson(admission);
   await mkdir(path.join(root, '.release-state/v1.2.3'), { recursive: true });
   await writeFile(
     path.join(root, '.release-state/v1.2.3/release-admission.json'),

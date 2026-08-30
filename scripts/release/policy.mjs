@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { hashReleaseConfig, validateReleaseConfig } from './config.mjs';
+import { canonicalJson } from './evidence.mjs';
 
 const DEFAULT_TAG_PATTERN = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/;
 
@@ -1164,7 +1165,7 @@ function buildArtifactManifest(lsTreeOutput) {
       };
     });
   if (entries.length === 0) fail('target_tree_manifest_empty');
-  const bytes = `${JSON.stringify(entries)}\n`;
+  const bytes = canonicalJson(entries);
   return {
     schemaVersion: 1,
     format: 'git-ls-tree-z-v1',
