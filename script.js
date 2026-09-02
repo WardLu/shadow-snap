@@ -5,7 +5,7 @@
 
 const TRANS = {
     zh: {
-        page_title: "影瞬",
+        page_title: "影瞬 Shadow Snap | 电影感字幕长图生成器",
         header_title: "<img src='public/brand_assets/shadow_snap.svg' alt='Logo' class='header-logo'> 影瞬",
         header_desc: "快速制作具有'切割感'背景的电影对话长图",
         drop_zone_text: "拖拽图片至此 或 点击此处上传",
@@ -47,7 +47,7 @@ const TRANS = {
         default_wm: "公众号：影子AI之旅"
     },
     en: {
-        page_title: "Shadow Snap",
+        page_title: "Shadow Snap | Cinematic Subtitle Image Maker",
         header_title: "<img src='public/brand_assets/shadow_snap.svg' alt='Logo' class='header-logo'> Shadow Snap",
         header_desc: "Create cinematic long images with 'cut-out' backgrounds",
         drop_zone_text: "Drag & Drop Image Here or Click to Upload",
