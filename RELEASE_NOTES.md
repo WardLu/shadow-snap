@@ -4,6 +4,17 @@
 
 ---
 
+## v1.1.5 - 2026-09-03
+
+> **类型**: SEO/GEO 可发现性基础设施与受控发布对齐
+
+### 核心变更
+- **索引基础设施**：补充中文/英文标题、描述、canonical、Open Graph、Twitter 与 WebApplication JSON-LD。
+- **爬虫入口**：新增 canonical `robots.txt` 与单 URL `sitemap.xml`。
+- **发布验收对齐**：更新 Release Controller 的生产验收标题，并以回归测试锁定 SEO 合约。
+
+---
+
 ## v1.1.4 - 2026-08-30
 
 > **类型**: 发布治理与部署元数据加固
