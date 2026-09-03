@@ -138,11 +138,36 @@ test('Shadow Snap static validator requires local assets and disabled Git deploy
   await mkdir(path.join(root, 'public'));
   await writeFile(
     path.join(root, 'index.html'),
-    '<link rel="stylesheet" href="style.css"><script src="script.js"></script><img src="public/logo.svg">',
+    '<title>影瞬 Shadow Snap</title>' +
+      '<meta name="description" content="A local browser image tool">' +
+      '<meta name="robots" content="index,follow">' +
+      '<link rel="canonical" href="https://snap.shadow.wang/">' +
+      '<meta property="og:url" content="https://snap.shadow.wang/">' +
+      '<meta name="twitter:card" content="summary_large_image">' +
+      '<meta name="twitter:image:alt" content="影瞬 Shadow Snap">' +
+      '<script id="shadow-snap-structured-data" type="application/ld+json">' +
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebApplication',
+        name: 'Shadow Snap',
+        alternateName: '影瞬',
+        url: 'https://snap.shadow.wang/',
+        provider: { '@type': 'Organization', name: 'Shadow.Nexus', url: 'https://shadow.wang/zh' },
+      }) +
+      '</script>' +
+      '<link rel="stylesheet" href="style.css"><script src="script.js"></script><img src="public/logo.svg">',
   );
   await writeFile(path.join(root, 'style.css'), 'body {}');
   await writeFile(path.join(root, 'script.js'), 'console.log("ok")');
   await writeFile(path.join(root, 'public/logo.svg'), '<svg/>');
+  await writeFile(
+    path.join(root, 'robots.txt'),
+    'User-agent: *\nAllow: /\nSitemap: https://snap.shadow.wang/sitemap.xml\n',
+  );
+  await writeFile(
+    path.join(root, 'sitemap.xml'),
+    '<urlset><url><loc>https://snap.shadow.wang/</loc></url></urlset>',
+  );
   await writeFile(
     path.join(root, 'vercel.json'),
     JSON.stringify({ git: { deploymentEnabled: false } }),
@@ -153,4 +178,42 @@ test('Shadow Snap static validator requires local assets and disabled Git deploy
   });
   await writeFile(path.join(root, 'vercel.json'), JSON.stringify({}));
   await assert.rejects(validateStaticSite(root), /vercel_git_deployment_not_disabled/);
+});
+
+test('Shadow Snap release admission covers the canonical SEO contract', async () => {
+  const html = await readFile(path.join(repoRoot, 'index.html'), 'utf8');
+  const sitemap = await readFile(path.join(repoRoot, 'sitemap.xml'), 'utf8');
+  const acceptance = JSON.parse(
+    await readFile(path.join(repoRoot, 'config/release-production.json'), 'utf8'),
+  ).acceptance;
+  const structuredDataMatch = html.match(
+    /<script id="shadow-snap-structured-data" type="application\/ld\+json">([\s\S]*?)<\/script>/,
+  );
+
+  assert.equal(
+    acceptance.bodyIncludes,
+    '<title data-i18n="page_title">影瞬 Shadow Snap | 电影感字幕长图生成器</title>',
+  );
+  assert.match(html, new RegExp(acceptance.bodyIncludes.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /<meta name="twitter:image:alt" content="影瞬 Shadow Snap">/);
+  assert.deepEqual(
+    [...sitemap.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map((match) => match[1]),
+    ['https://snap.shadow.wang/'],
+  );
+  assert.deepEqual(JSON.parse(structuredDataMatch?.[1] ?? ''), {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Shadow Snap',
+    alternateName: '影瞬',
+    url: 'https://snap.shadow.wang/',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Web',
+    isAccessibleForFree: true,
+    description: 'Create cinematic long images with subtitles from a still image and a line of text.',
+    provider: {
+      '@type': 'Organization',
+      name: 'Shadow.Nexus',
+      url: 'https://shadow.wang/zh',
+    },
+  });
 });
