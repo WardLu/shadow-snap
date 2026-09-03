@@ -27,6 +27,8 @@ function localAsset(value) {
 
 export async function validateStaticSite(repoRoot) {
   const html = await readFile(path.join(repoRoot, 'index.html'), 'utf8');
+  const robots = await readFile(path.join(repoRoot, 'robots.txt'), 'utf8').catch(() => fail('static_robots_missing'));
+  const sitemap = await readFile(path.join(repoRoot, 'sitemap.xml'), 'utf8').catch(() => fail('static_sitemap_missing'));
   const assets = new Set();
   const pattern = /\b(?:src|href)=["']([^"']+)["']/gi;
   for (const match of html.matchAll(pattern)) {
@@ -36,6 +38,47 @@ export async function validateStaticSite(repoRoot) {
   for (const asset of assets) {
     await access(path.join(repoRoot, asset)).catch(() => fail(`static_asset_missing:${asset}`));
   }
+
+  const requiredHtml = [
+    '<meta name="description"',
+    '<meta name="robots" content="index,follow">',
+    '<link rel="canonical" href="https://snap.shadow.wang/">',
+    '<meta property="og:url" content="https://snap.shadow.wang/">',
+    '<meta name="twitter:card" content="summary_large_image">',
+    '<meta name="twitter:image:alt" content="影瞬 Shadow Snap">',
+    '<script id="shadow-snap-structured-data" type="application/ld+json">',
+  ];
+  if (requiredHtml.some((snippet) => !html.includes(snippet))) {
+    fail('static_seo_metadata_missing');
+  }
+  if (robots !== 'User-agent: *\nAllow: /\nSitemap: https://snap.shadow.wang/sitemap.xml\n') {
+    fail('static_robots_invalid');
+  }
+  const sitemapLocations = [...sitemap.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map((match) => match[1]);
+  if (sitemapLocations.length !== 1 || sitemapLocations[0] !== 'https://snap.shadow.wang/') {
+    fail('static_sitemap_invalid');
+  }
+  const structuredDataMatch = html.match(
+    /<script id="shadow-snap-structured-data" type="application\/ld\+json">([\s\S]*?)<\/script>/,
+  );
+  let structuredData;
+  try {
+    structuredData = JSON.parse(structuredDataMatch?.[1] ?? '');
+  } catch {
+    fail('static_jsonld_invalid');
+  }
+  if (
+    structuredData?.['@context'] !== 'https://schema.org' ||
+    structuredData?.['@type'] !== 'WebApplication' ||
+    structuredData?.name !== 'Shadow Snap' ||
+    structuredData?.alternateName !== '影瞬' ||
+    structuredData?.url !== 'https://snap.shadow.wang/' ||
+    structuredData?.provider?.name !== 'Shadow.Nexus' ||
+    structuredData?.provider?.url !== 'https://shadow.wang/zh'
+  ) {
+    fail('static_jsonld_invalid');
+  }
+
   let vercelConfig;
   try {
     vercelConfig = JSON.parse(await readFile(path.join(repoRoot, 'vercel.json'), 'utf8'));
