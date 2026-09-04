@@ -73,8 +73,10 @@ export async function validateStaticSite(repoRoot) {
     structuredData?.name !== 'Shadow Snap' ||
     structuredData?.alternateName !== '影瞬' ||
     structuredData?.url !== 'https://snap.shadow.wang/' ||
-    structuredData?.provider?.name !== 'Shadow.Nexus' ||
-    structuredData?.provider?.url !== 'https://shadow.wang/zh'
+    structuredData?.['@id'] !== 'https://snap.shadow.wang/#application' ||
+    structuredData?.publisher?.['@id'] !== 'https://shadow.wang/#organization' ||
+    structuredData?.publisher?.name !== 'Shadow Nexus' ||
+    structuredData?.publisher?.url !== 'https://shadow.wang/'
   ) {
     fail('static_jsonld_invalid');
   }
@@ -87,6 +89,16 @@ export async function validateStaticSite(repoRoot) {
   }
   if (vercelConfig?.git?.deploymentEnabled !== false) {
     fail('vercel_git_deployment_not_disabled');
+  }
+  const responseHeaders = Object.fromEntries(
+    (vercelConfig?.headers?.[0]?.headers ?? []).map(({ key, value }) => [key, value]),
+  );
+  if (
+    responseHeaders['X-Content-Type-Options'] !== 'nosniff' ||
+    responseHeaders['X-Frame-Options'] !== 'SAMEORIGIN' ||
+    responseHeaders['Referrer-Policy'] !== 'strict-origin-when-cross-origin'
+  ) {
+    fail('vercel_security_headers_invalid');
   }
   return { status: 'passed', checkedAssets: [...assets].sort() };
 }
