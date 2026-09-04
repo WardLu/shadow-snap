@@ -149,10 +149,16 @@ test('Shadow Snap static validator requires local assets and disabled Git deploy
       JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
+        '@id': 'https://snap.shadow.wang/#application',
         name: 'Shadow Snap',
         alternateName: '影瞬',
         url: 'https://snap.shadow.wang/',
-        provider: { '@type': 'Organization', name: 'Shadow.Nexus', url: 'https://shadow.wang/zh' },
+        publisher: {
+          '@type': 'Organization',
+          '@id': 'https://shadow.wang/#organization',
+          name: 'Shadow Nexus',
+          url: 'https://shadow.wang/',
+        },
       }) +
       '</script>' +
       '<link rel="stylesheet" href="style.css"><script src="script.js"></script><img src="public/logo.svg">',
@@ -170,7 +176,17 @@ test('Shadow Snap static validator requires local assets and disabled Git deploy
   );
   await writeFile(
     path.join(root, 'vercel.json'),
-    JSON.stringify({ git: { deploymentEnabled: false } }),
+    JSON.stringify({
+      git: { deploymentEnabled: false },
+      headers: [{
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      }],
+    }),
   );
   assert.deepEqual(await validateStaticSite(root), {
     status: 'passed',
@@ -203,6 +219,7 @@ test('Shadow Snap release admission covers the canonical SEO contract', async ()
   assert.deepEqual(JSON.parse(structuredDataMatch?.[1] ?? ''), {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
+    '@id': 'https://snap.shadow.wang/#application',
     name: 'Shadow Snap',
     alternateName: '影瞬',
     url: 'https://snap.shadow.wang/',
@@ -210,10 +227,11 @@ test('Shadow Snap release admission covers the canonical SEO contract', async ()
     operatingSystem: 'Web',
     isAccessibleForFree: true,
     description: 'Create cinematic long images with subtitles from a still image and a line of text.',
-    provider: {
+    publisher: {
       '@type': 'Organization',
-      name: 'Shadow.Nexus',
-      url: 'https://shadow.wang/zh',
+      '@id': 'https://shadow.wang/#organization',
+      name: 'Shadow Nexus',
+      url: 'https://shadow.wang/',
     },
   });
 });
