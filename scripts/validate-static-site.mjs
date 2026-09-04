@@ -73,8 +73,10 @@ export async function validateStaticSite(repoRoot) {
     structuredData?.name !== 'Shadow Snap' ||
     structuredData?.alternateName !== '影瞬' ||
     structuredData?.url !== 'https://snap.shadow.wang/' ||
-    structuredData?.provider?.name !== 'Shadow.Nexus' ||
-    structuredData?.provider?.url !== 'https://shadow.wang/zh'
+    structuredData?.['@id'] !== 'https://snap.shadow.wang/#application' ||
+    structuredData?.publisher?.['@id'] !== 'https://shadow.wang/#organization' ||
+    structuredData?.publisher?.name !== 'Shadow Nexus' ||
+    structuredData?.publisher?.url !== 'https://shadow.wang/'
   ) {
     fail('static_jsonld_invalid');
   }
