@@ -90,6 +90,16 @@ export async function validateStaticSite(repoRoot) {
   if (vercelConfig?.git?.deploymentEnabled !== false) {
     fail('vercel_git_deployment_not_disabled');
   }
+  const responseHeaders = Object.fromEntries(
+    (vercelConfig?.headers?.[0]?.headers ?? []).map(({ key, value }) => [key, value]),
+  );
+  if (
+    responseHeaders['X-Content-Type-Options'] !== 'nosniff' ||
+    responseHeaders['X-Frame-Options'] !== 'SAMEORIGIN' ||
+    responseHeaders['Referrer-Policy'] !== 'strict-origin-when-cross-origin'
+  ) {
+    fail('vercel_security_headers_invalid');
+  }
   return { status: 'passed', checkedAssets: [...assets].sort() };
 }
 
