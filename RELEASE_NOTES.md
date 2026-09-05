@@ -4,6 +4,11 @@
 
 ---
 
+## v1.1.7 - 2026-09-05
+
+- Reconcile the protected production ancestry and preserve the Baidu verification assets.
+- Keep v1.1.6 product behavior while advancing release metadata.
+
 ## v1.1.6 - 2026-09-05
 
 > **类型**: 品牌实体关系与安全响应头增强
