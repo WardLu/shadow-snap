@@ -1,5 +1,11 @@
 # Shadow Snap Release Process
 
+## 最新生产快照（2026-09-05）
+
+Shadow Snap 当前生产版本为 **v1.1.7**，发布 PR [#17](https://github.com/WardLu/shadow-snap/pull/17) 已合并；`production` 与 `main` 均指向 `044c3e24c4f5723189a90131a1f3566cc22d10fb`，Vercel 当前部署为 `dpl_13poy3MAeNTs6Wi7JwxsDzFhNayd`，Release Controller Audit=`current`。`https://snap.shadow.wang/` 与 `https://sie.shadow.wang/` 均已通过 HTTP 200、HSTS 与页面标识核验。
+
+下方命令与流程保持通用模板；后续版本仍需按独立授权门禁执行。
+
 Shadow Snap 使用本地 Release Controller，将代码集成、Release 选择、staged Production 和线上 Promote 分开。Vercel Git 自动部署对所有分支关闭；Git push 本身不会创建 Preview 或 Production deployment。
 
 ## 本地命令
