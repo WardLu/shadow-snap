@@ -422,7 +422,7 @@ export async function promoteDeployment({
 }) {
   await verifyVercelCliVersion({ runner, repoRoot, config });
   const normalizedUrl = assertDeploymentUrl(deploymentUrl);
-  await runner('vercel', ['promote', normalizedUrl, '--yes'], {
+  await runner('vercel', ['promote', normalizedUrl, '--yes', '--scope', config.vercel.teamId], {
     cwd: repoRoot,
     env: vercelEnv(config),
   });
@@ -436,7 +436,7 @@ export async function rollbackDeployment({
 }) {
   await verifyVercelCliVersion({ runner, repoRoot, config });
   const normalizedUrl = assertDeploymentUrl(deploymentUrl);
-  await runner('vercel', ['rollback', normalizedUrl, '--yes'], {
+  await runner('vercel', ['rollback', normalizedUrl, '--yes', '--scope', config.vercel.teamId], {
     cwd: repoRoot,
     env: vercelEnv(config),
   });
