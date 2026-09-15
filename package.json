@@ -21,6 +21,7 @@
     "release:fail": "node scripts/release/cli.mjs fail",
     "release:anchor-admission": "node scripts/release/cli.mjs anchor-admission",
     "release:install": "node scripts/install-release-controller.mjs",
+    "release:production": "bash scripts/release/deploy-production.sh",
     "test:release-controller": "shasum -a 256 -c config/controller-files.sha256 && node --test tests/release/contracts/*.test.mjs tests/release/repository-config.test.mjs",
     "validate:static": "node scripts/validate-static-site.mjs"
   }
