@@ -1,0 +1,35 @@
+# 仅发布静态站点文件；仓库内部内容（发布机制、测试、配置、文档、素材）不进入部署。
+# 站点以 outputDirectory "." 发布：被上传的文件即线上可访问的文件，
+# 故此处必须覆盖任何可能落到仓库根的敏感内容（密钥、发布证据、系统文件）。
+AGENTS.md
+README.md
+README.*.md
+RELEASE_NOTES.md
+# 只排除仓库根的 LICENSE；public/fonts/*/LICENSE 是字体的 OFL 许可证，必须随字体发布
+/LICENSE
+.gitignore
+.gitattributes
+.editorconfig
+# 通配所有 dotenv 变体：字面量 .env.local 挡不住 .env / .env.production 等新增文件
+.env*
+# 发布证据目录：含发布回执与 SHA 记录，不应随站点发布
+.release-state
+# macOS 目录元数据文件
+.DS_Store
+**/.DS_Store
+**/node_modules
+# 忽略清单本身无需随站点发布
+.vercelignore
+.vscode
+.github
+.githooks
+.mimosa
+.vercel
+.worktrees
+config
+docs
+scripts
+tests
+assets
+package.json
+package-lock.json

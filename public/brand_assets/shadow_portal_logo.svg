@@ -1,0 +1,36 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="portalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#22d3ee" />
+            <stop offset="50%" stop-color="#818cf8" />
+            <stop offset="100%" stop-color="#a855f7" />
+        </linearGradient>
+        <filter id="portalGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+            <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+    
+    <!-- The "Shadow" (Concept B Depth) -->
+    <g opacity="0.3">
+        <path d="M35 75 C 20 75, 20 35, 50 35 C 80 35, 80 75, 65 75 L 65 35 C 65 25, 90 25, 90 50" 
+              stroke="#3b82f6" stroke-width="12" stroke-linecap="round" transform="translate(8, 8)"/>
+        <path d="M35 75 C 20 75, 20 35, 50 35 C 80 35, 80 75, 65 75 L 65 35 C 65 25, 90 25, 90 50" 
+              stroke="#4f46e5" stroke-width="12" stroke-linecap="round" transform="translate(4, 4)"/>
+    </g>
+
+    <!-- The "Neural Path" (Concept A Fluidity) -->
+    <path d="M35 75 C 20 75, 20 35, 50 35 C 80 35, 80 75, 65 75 L 65 35 C 65 25, 90 25, 90 50" 
+          stroke="url(#portalGrad)" stroke-width="12" stroke-linecap="round" filter="url(#portalGlow)"/>
+    
+    <!-- The "Active Nodes" (Connectivity) -->
+    <circle cx="35" cy="75" r="5" fill="#fff" />
+    <circle cx="90" cy="50" r="5" fill="#fff" />
+    
+    <!-- Tech Accents -->
+    <path d="M20 90 L 40 90" stroke="#22d3ee" stroke-width="2" opacity="0.5" transform="translate(0, -5)" />
+    <path d="M85 20 L 105 20" stroke="#a855f7" stroke-width="2" opacity="0.5" transform="translate(-5, 5)" />
+</svg>

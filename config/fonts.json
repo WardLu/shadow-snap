@@ -1,0 +1,15 @@
+{
+  "outDir": "public/fonts",
+  "cssFile": "public/fonts/fonts.css",
+  "urlBase": "/public/fonts",
+  "fonts": [
+    { "package": "@fontsource/ibm-plex-mono", "version": "5.3.0", "css": ["400.css", "600.css"], "family": "IBM Plex Mono" },
+    { "package": "@fontsource-variable/roboto", "version": "5.3.0", "css": ["wght.css"], "family": "Roboto" },
+    { "package": "@fontsource-variable/noto-sans-thai", "version": "5.3.0", "css": ["wght.css"], "family": "Noto Sans Thai" },
+    { "package": "@fontsource-variable/noto-sans-arabic", "version": "5.3.0", "css": ["wght.css"], "family": "Noto Sans Arabic" },
+    { "package": "@fontsource-variable/noto-sans", "version": "5.3.0", "css": ["wght.css"], "family": "Noto Sans Vietnamese" }
+  ],
+  "localSubsets": [
+    { "family": "Noto Sans SC", "cssFile": "public/fonts-subset/fonts-subset.css", "file": "public/fonts-subset/noto-sans-sc-cjk.woff2", "maxBytes": 204800 }
+  ]
+}

@@ -1,0 +1,33 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="puzzleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#22d3ee" />
+            <stop offset="50%" stop-color="#818cf8" />
+            <stop offset="100%" stop-color="#a855f7" />
+        </linearGradient>
+        <filter id="puzzleGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+            <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+
+    <!-- Back Layer (Context) -->
+    <rect x="25" y="25" width="70" height="70" rx="8" fill="#1e293b" stroke="url(#puzzleGrad)" stroke-width="2" stroke-opacity="0.3"/>
+    
+    <!-- Sliced Layers -->
+    <g filter="url(#puzzleGlow)">
+        <!-- Top Slice -->
+        <rect x="20" y="35" width="80" height="12" rx="3" fill="#3b82f6" opacity="0.4" />
+        <!-- Middle Slice (Active/Bright) -->
+        <rect x="15" y="54" width="90" height="12" rx="3" fill="url(#puzzleGrad)" />
+        <rect x="30" y="57" width="60" height="6" rx="2" fill="white" opacity="0.3" /> <!-- Text line hint -->
+        <!-- Bottom Slice -->
+        <rect x="20" y="73" width="80" height="12" rx="3" fill="#a855f7" opacity="0.4" />
+    </g>
+
+    <!-- Puzzle Connector/Stitch -->
+    <path d="M60 20 L60 100" stroke="url(#puzzleGrad)" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" />
+</svg>

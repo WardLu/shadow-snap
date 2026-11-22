@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- 首页按浏览器语言跳转；同步经典脚本，放在样式表之前，避免先闪一下默认语言 -->
+    <script src="/locale-redirect.js"></script>
+    <!-- 移动端浏览器界面与页面同色，避免状态栏/地址栏跳色 -->
+    <meta name="theme-color" content="#090a0f">
+    <meta name="color-scheme" content="dark">
+    <title data-i18n="page_title">Shadow Snap | Generador gratuito de imágenes de subtítulos cinematográficos</title>
+    <meta name="description" content="Crea imágenes cinematográficas con subtítulos a partir de un fotograma y varias líneas de diálogo. Ajusta fuentes, colores y marcas de agua, y exporta localmente en tu navegador.">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://snap.shadow.wang/es/">
+    <link rel="alternate" hreflang="zh" href="https://snap.shadow.wang/">
+    <link rel="alternate" hreflang="en" href="https://snap.shadow.wang/en/">
+    <link rel="alternate" hreflang="zh-Hant" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-TW" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-HK" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-MO" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="ja" href="https://snap.shadow.wang/ja/">
+    <link rel="alternate" hreflang="ko" href="https://snap.shadow.wang/ko/">
+    <link rel="alternate" hreflang="es" href="https://snap.shadow.wang/es/">
+    <link rel="alternate" hreflang="pt" href="https://snap.shadow.wang/pt/">
+    <link rel="alternate" hreflang="fr" href="https://snap.shadow.wang/fr/">
+    <link rel="alternate" hreflang="de" href="https://snap.shadow.wang/de/">
+    <link rel="alternate" hreflang="ru" href="https://snap.shadow.wang/ru/">
+    <link rel="alternate" hreflang="id" href="https://snap.shadow.wang/id/">
+    <link rel="alternate" hreflang="ar" href="https://snap.shadow.wang/ar/">
+    <link rel="alternate" hreflang="x-default" href="https://snap.shadow.wang/en/">
+    <meta name="application-name" content="Shadow Snap">
+    <meta name="author" content="Ward Lu">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Shadow Snap">
+    <meta property="og:title" content="Shadow Snap | Generador gratuito de imágenes de subtítulos cinematográficos">
+    <meta property="og:description" content="Crea imágenes cinematográficas con subtítulos a partir de un fotograma y varias líneas de diálogo. Ajusta fuentes, colores y marcas de agua, y exporta localmente en tu navegador.">
+    <meta property="og:url" content="https://snap.shadow.wang/es/">
+    <meta property="og:locale" content="es_ES">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="zh_TW">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta property="og:locale:alternate" content="ko_KR">
+    <meta property="og:locale:alternate" content="pt_BR">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="ru_RU">
+    <meta property="og:locale:alternate" content="id_ID">
+    <meta property="og:locale:alternate" content="ar_AR">
+    <meta property="og:image" content="https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Shadow Snap">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@Gollumgulu">
+    <meta name="twitter:creator" content="@Gollumgulu">
+    <meta name="twitter:title" content="Shadow Snap | Generador gratuito de imágenes de subtítulos cinematográficos">
+    <meta name="twitter:description" content="Crea imágenes cinematográficas con subtítulos a partir de un fotograma y varias líneas de diálogo. Ajusta fuentes, colores y marcas de agua, y exporta localmente en tu navegador.">
+    <meta name="twitter:image" content="https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png">
+    <meta name="twitter:image:alt" content="Shadow Snap">
+    <!-- 引入浏览器小图标 -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/public/brand_assets/shadow_snap.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/brand_assets/icon-32.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="/public/brand_assets/icon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/brand_assets/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/brand_assets/icon-192.png">
+    <!-- 同域自托管字体（多语言 + 特色字体），来源与许可见 public/fonts/fonts.lock.json -->
+    <link rel="stylesheet" href="/public/fonts/fonts.css">
+    <link rel="stylesheet" href="/public/fonts-subset/fonts-subset.css">
+    <link rel="stylesheet" href="/style.css">
+    <!-- Vercel Web Analytics（自托管路由：同源加载与上报，无需放宽 CSP） -->
+    <script defer src="/_vercel/insights/script.js" data-sdkn="@vercel/analytics" data-sdkv="1.6.1"></script>
+    <!-- 核心 WebApplication 结构化数据 (Strict Schema for Release Controller) -->
+    <script id="shadow-snap-structured-data" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "@id": "https://snap.shadow.wang/#application",
+  "name": "Shadow Snap",
+  "alternateName": "影瞬",
+  "url": "https://snap.shadow.wang/es/",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web, iOS, Android, macOS, Windows",
+  "browserRequirements": "Requires modern web browser with HTML5 Canvas support",
+  "softwareVersion": "1.5.3",
+  "isAccessibleForFree": true,
+  "description": "Crea imágenes cinematográficas con subtítulos a partir de un fotograma y varias líneas de diálogo. Ajusta fuentes, colores y marcas de agua, y exporta localmente en tu navegador.",
+  "image": "https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png",
+  "featureList": [
+    "Conserva intacto el primer fotograma y une automáticamente los siguientes cortes de subtítulos.",
+    "Procesa y exporta imágenes localmente con HTML5 Canvas, sin subir fotos.",
+    "Elige tipografías para chino, latino, tailandés, vietnamita y árabe. Ajusta el tamaño de fuente, los colores, los contornos, los márgenes de seguridad y las marcas de agua.",
+    "Uso gratuito, sin cuenta ni instalación. Importa una imagen a la vez."
+  ],
+  "offers": {
+    "@type": "Offer",
+    "name": "Free",
+    "price": "0",
+    "priceCurrency": "USD",
+    "url": "https://snap.shadow.wang/es/"
+  },
+  "author": {
+    "@id": "https://wardlu.com/#ward"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "@id": "https://shadow.wang/#organization",
+    "name": "Shadow Lab",
+    "url": "https://shadow.wang"
+  },
+  "inLanguage": "es"
+}
+    </script>
+    <!-- 全域 GEO 与富媒体图谱扩展 (Rich Knowledge Graph) -->
+    <script id="shadow-snap-geo-data" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://snap.shadow.wang/#website",
+      "url": "https://snap.shadow.wang/",
+      "name": "Shadow Snap",
+      "alternateName": "影瞬",
+      "description": "Crea imágenes cinematográficas con subtítulos a partir de un fotograma y varias líneas de diálogo. Ajusta fuentes, colores y marcas de agua, y exporta localmente en tu navegador.",
+      "publisher": {
+        "@id": "https://shadow.wang/#organization"
+      },
+      "inLanguage": [
+        "zh-CN",
+        "en-US"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://shadow.wang/#organization",
+      "name": "Shadow Lab",
+      "url": "https://shadow.wang",
+      "logo": "https://shadow.wang/brand_assets/shadow_lab_logo.png",
+      "founder": {
+        "@type": "Person",
+        "@id": "https://wardlu.com/#ward",
+        "name": "Ward Lu",
+        "url": "https://wardlu.com"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "support@shadow.wang",
+        "url": "https://shadow.wang"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://wardlu.com/#ward",
+      "name": "Ward Lu",
+      "jobTitle": "Creator of Shadow Lab",
+      "url": "https://wardlu.com",
+      "sameAs": [
+        "https://x.com/Gollumgulu",
+        "https://github.com/WardLu",
+        "https://xhslink.cn/m/4W1NWyRrxv5",
+        "https://v.douyin.com/1y06PMohfoE/"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://snap.shadow.wang/es/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Qué es Shadow Snap?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Shadow Snap es un generador gratuito de imágenes de subtítulos cinematográficos que combina una imagen fija con varias líneas de diálogo. No requiere cuenta ni instalación."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo creo una imagen con diálogos de película?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Importa una imagen, escribe los diálogos en líneas separadas, ajusta la fuente y la altura del corte, y exporta. El primer fotograma se mantiene intacto y las siguientes líneas usan cortes de la zona inferior."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Se suben mis fotos a un servidor?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. El procesamiento y la exportación de imágenes se realizan en la memoria de tu navegador. El sitio carga fuentes y usa estadísticas de visitas; ninguna de las dos cosas requiere subir tus imágenes."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo guardo una imagen en el móvil?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Tras exportar, guarda la imagen desde el panel de compartir del sistema. Los navegadores sin función de compartir abren un panel de guardado: toca Descargar o mantén pulsada la imagen. Si el guardado dentro de WeChat falla, abre la página en el navegador del sistema."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Qué idiomas y fuentes son compatibles?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La interfaz está disponible en 12 idiomas: chino simplificado, chino tradicional, inglés, japonés, coreano, español, portugués, francés, alemán, ruso, indonesio y árabe. Las opciones de fuente incluyen escrituras china, latina, tailandesa, vietnamita y árabe. La visualización depende del navegador y de la disponibilidad de las fuentes."
+          }
+        }
+      ],
+      "inLanguage": "es"
+    }
+  ]
+}
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 院线工作室顶部导航 -->
+        <header class="studio-header">
+            <div class="header-brand-wrap">
+                <h1 data-i18n="header_title"><img src='/public/brand_assets/shadow_snap.svg' alt='Logo' title='Logotipo de Shadow Snap' class='header-logo'> Shadow Snap</h1>
+                <span class="studio-badge">CINEMA STUDIO</span>
+            </div>
+
+            <div class="header-tagline" data-i18n="header_desc">Lienzo de formato largo cinematográfico · Estudio profesional de subtítulos</div>
+
+            <div class="header-actions">
+                <div class="lang-switch">
+                    <select id="lang-select" class="lang-select" aria-label="Elegir idioma de la interfaz" data-i18n-aria="title_lang">
+                        <option value="zh">简体中文</option>
+                        <option value="en">English</option>
+                        <option value="zh-hant">繁體中文</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko">한국어</option>
+                        <option value="es" selected>Español</option>
+                        <option value="pt">Português</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="ru">Русский</option>
+                        <option value="id">Bahasa Indonesia</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                </div>
+                <button id="download-btn" class="studio-export-btn" data-i18n-title="title_export" title="Exportar una imagen larga en ultra HD">
+                    <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span class="btn-text" data-i18n="btn_save_img">Exportar imagen</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主体：65% 画布预览区 + 35% 检查器面板 -->
+        <main class="studio-workspace">
+            <!-- 胶片画布区 (65%) -->
+            <section class="cinema-stage-section">
+                <h2 class="sr-only" data-i18n="stage_heading">Vista previa del lienzo de subtítulos de película</h2>
+                <div class="stage-topbar">
+                    <div class="stage-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text" id="stage-status-text" data-i18n="stage_ready">Lienzo listo · Esperando fotograma</span>
+                    </div>
+                    <div class="aspect-indicator">2.39:1 CINEMASCOPE READY</div>
+                </div>
+
+                <div class="canvas-viewport" id="canvas-viewport">
+                    <!-- 初始未载入状态：独立的高清电影取景框，绝不被 dummy canvas 裁切遮挡 -->
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-aspect-frame">
+                            <span class="frame-corner top-left"></span>
+                            <span class="frame-corner top-right"></span>
+                            <span class="frame-corner bottom-left"></span>
+                            <span class="frame-corner bottom-right"></span>
+                            <div class="drop-icon-box">
+                                <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            </div>
+                            <div class="drop-main-text" data-i18n="drop_zone_text">Arrastra aquí un fotograma de película o haz clic para importar</div>
+                            <div class="drop-sub-text" data-i18n="drop_sub_text">Fotogramas en JPG / PNG / WebP · procesados localmente en tu navegador</div>
+                            <div class="drop-action-pill">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                <span data-i18n="btn_select_img">Cambiar fotograma</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 载入剧照后的高清画板 -->
+                    <div class="canvas-wrapper hidden" id="canvas-wrapper">
+                        <canvas id="subtitle-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- 底部工作台状态与控制坞（与画板视口流式分离，绝不重叠遮挡任何台词与画面） -->
+                <div class="stage-dock-bar">
+                    <div class="dock-left">
+                        <label class="dock-btn upload-trigger" for="image-input" title="Elegir un fotograma local" data-i18n-title="title_upload">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <span data-i18n="btn_select_img">Cambiar fotograma</span>
+                        </label>
+                        <input type="file" id="image-input" accept="image/png, image/jpeg, image/webp, image/jpg, .png, .jpg, .jpeg, .webp, image/*" class="sr-only">
+                        <button id="reset-btn" class="dock-btn danger-trigger" title="Borrar el fotograma y los diálogos actuales" data-i18n-title="title_clear">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            <span data-i18n="btn_delete_img">Vaciar lienzo</span>
+                        </button>
+                    </div>
+                    <div class="dock-center">
+                        <div class="view-mode-toggle" role="group" aria-label="Modo de visualización del lienzo" data-i18n-aria="aria_view_mode">
+                            <button type="button" id="view-fit-btn" class="view-toggle-btn active" title="Ajustar: muestra el encuadre completo y cada línea de subtítulo" data-i18n-title="title_view_fit">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                                <span data-i18n="view_fit">Ajustar</span>
+                            </button>
+                            <button type="button" id="view-actual-btn" class="view-toggle-btn" title="1:1: revisa el detalle a nivel de píxel en tamaño completo" data-i18n-title="title_view_actual">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <span data-i18n="view_actual">1:1</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dock-right">
+                        <span class="dock-badge">Canvas 2D Engine</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 检查器控制面板 (35%) -->
+            <aside class="control-panel">
+                <h2 class="sr-only" data-i18n="controls_heading">Panel de estilo y unión de subtítulos</h2>
+
+                <!-- 分段选项卡切换 -->
+                <div class="inspector-tabs" role="tablist">
+                    <button type="button" class="tab-btn active" id="tab-btn-script" data-tab="script" role="tab" aria-selected="true" data-i18n="tab_script">Guion</button>
+                    <button type="button" class="tab-btn" id="tab-btn-style" data-tab="style" role="tab" aria-selected="false" data-i18n="tab_style">Tipografía</button>
+                    <button type="button" class="tab-btn" id="tab-btn-canvas" data-tab="canvas" role="tab" aria-selected="false" data-i18n="tab_canvas">Encuadre</button>
+                </div>
+
+                <!-- 面板内容容器 -->
+                <div class="inspector-content">
+                    <!-- Tab 1: 台词脚本 -->
+                    <div class="tab-pane active" id="pane-script">
+                        <div class="pane-section">
+                            <div class="quote-tags-wrapper">
+                                <div class="tags-label" data-i18n="label_quote_tags">Frases de películas clásicas</div>
+                                <div class="quote-chips">
+                                    <button type="button" class="quote-chip" data-quote="pi" data-i18n="chip_pi">La vida de Pi</button>
+                                    <button type="button" class="quote-chip" data-quote="interstellar" data-i18n="chip_interstellar">Interstellar</button>
+                                    <button type="button" class="quote-chip" data-quote="mood" data-i18n="chip_mood">Deseando amar</button>
+                                    <button type="button" class="quote-chip" data-quote="truman" data-i18n="chip_truman">El show de Truman</button>
+                                </div>
+                            </div>
+
+                            <div class="script-editor-box">
+                                <div class="editor-header">
+                                    <span class="editor-label" data-i18n="group_subtitle">Guion de diálogos</span>
+                                    <span class="editor-hint" data-i18n="hint_enter">Pulsa Intro para crear un corte</span>
+                                </div>
+                                <textarea id="subtitle-text" placeholder="Escribe aquí los diálogos de la película; pulsa Intro para crear un nuevo corte de subtítulo..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: 字体质感与排版 -->
+                    <div class="tab-pane" id="pane-style">
+                        <div class="pane-section">
+                            <!-- 胶片调色预设 -->
+                            <div class="preset-section">
+                                <div class="section-label" data-i18n="label_presets">Preajustes de color de película</div>
+                                <div class="preset-grid">
+                                    <button type="button" class="preset-card active" data-preset="nolan">
+                                        <span class="preset-swatch swatch-nolan">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_nolan_name">Nolan White</span>
+                                        <span class="preset-desc" data-i18n="preset_nolan_desc">Blanco puro · contorno negro</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="wong">
+                                        <span class="preset-swatch swatch-wong">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_wong_name">Dorado Wong Kar-wai</span>
+                                        <span class="preset-desc" data-i18n="preset_wong_desc">Dorado retro cálido · ambiente oscuro</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="tokyo">
+                                        <span class="preset-swatch swatch-tokyo">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_tokyo_name">Cian Tokio</span>
+                                        <span class="preset-desc" data-i18n="preset_tokyo_desc">Cian frío · contorno fino</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="french">
+                                        <span class="preset-swatch swatch-french">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_french_name">Mono mínimo</span>
+                                        <span class="preset-desc" data-i18n="preset_french_desc">Alto contraste · texto grande</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 字体微调 -->
+                            <div class="field">
+                                <label for="font-family" data-i18n="label_font">Familia tipográfica</label>
+                                <select id="font-family" class="studio-select">
+                                    <option value="'Noto Sans SC', sans-serif" data-i18n="font_sc">Chino (Noto Sans SC)</option>
+                                    <option value="'Roboto', sans-serif" data-i18n="font_roboto">Latino (Roboto)</option>
+                                    <option value="'IBM Plex Mono', monospace" data-i18n="font_mono">Monoespaciada (IBM Plex Mono)</option>
+                                    <option value="'Noto Sans Thai', sans-serif" data-i18n="font_thai">Tailandés (Noto Sans Thai)</option>
+                                    <option value="'Noto Sans Vietnamese', sans-serif" data-i18n="font_vietnamese">Vietnamita (Noto Sans Vietnamese)</option>
+                                    <option value="'Noto Sans Arabic', sans-serif" data-i18n="font_arabic">Árabe (Noto Sans Arabic)</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_font_size">Tamaño de fuente</span>
+                                    <span class="slider-value"><span id="font-size-val">22</span> px</span>
+                                </div>
+                                <input type="range" id="font-size" min="12" max="140" value="22" class="studio-slider">
+                            </div>
+
+                            <div class="field colors-row">
+                                <div class="color-item">
+                                    <span class="color-label" data-i18n="color_text">Color del texto</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="font-color" value="#ffffff" title="Color del texto" data-i18n-title="color_text">
+                                    </div>
+                                </div>
+                                <div class="color-item">
+                                    <span class="color-label" data-i18n="color_stroke">Color del contorno</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="stroke-color" value="#000000" title="Color del contorno" data-i18n-title="color_stroke">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_bar_height">Altura del corte</span>
+                                    <span class="slider-value"><span id="bar-height-val">48</span> px</span>
+                                </div>
+                                <input type="range" id="bar-height" min="20" max="260" value="48" class="studio-slider">
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_padding_x">Margen de seguridad</span>
+                                    <span class="slider-value"><span id="padding-x-val">32</span> px</span>
+                                </div>
+                                <input type="range" id="padding-x" min="0" max="120" value="32" class="studio-slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: 水印与画幅 -->
+                    <div class="tab-pane" id="pane-canvas">
+                        <div class="pane-section">
+                            <div class="switch-row">
+                                <label for="wm-enable" data-i18n="label_wm_enable" class="switch-label">Activar marca de agua</label>
+                                <input type="checkbox" id="wm-enable" class="studio-switch">
+                            </div>
+
+                            <div id="wm-controls" class="wm-controls-container disabled-group">
+                                <div class="field">
+                                    <label for="wm-text" data-i18n="label_wm_content">Texto de la marca de agua</label>
+                                    <input type="text" id="wm-text" value="Shadow Snap · Cinema Studio" class="studio-input">
+                                </div>
+
+                                <div class="field">
+                                    <label for="wm-pos" data-i18n="label_wm_pos">Posición</label>
+                                    <select id="wm-pos" class="studio-select">
+                                        <option value="bottom-right" data-i18n="pos_bottom_right">Abajo a la derecha</option>
+                                        <option value="bottom-left" data-i18n="pos_bottom_left">Abajo a la izquierda</option>
+                                        <option value="top-right" data-i18n="pos_top_right">Arriba a la derecha</option>
+                                        <option value="top-left" data-i18n="pos_top_left">Arriba a la izquierda</option>
+                                        <option value="center" data-i18n="pos_center">Centro</option>
+                                    </select>
+                                </div>
+
+                                <div class="field">
+                                    <div class="slider-header">
+                                        <span data-i18n="label_wm_opacity">Opacidad</span>
+                                        <span class="slider-value"><span id="wm-opacity-val">0.5</span></span>
+                                    </div>
+                                    <input type="range" id="wm-opacity" min="0.1" max="1" step="0.05" value="0.5" class="studio-slider">
+                                </div>
+
+                                <div class="field">
+                                    <div class="slider-header">
+                                        <span data-i18n="label_wm_size">Tamaño de fuente</span>
+                                        <span class="slider-value"><span id="wm-size-val">14</span> px</span>
+                                    </div>
+                                    <input type="range" id="wm-size" min="10" max="40" value="14" class="studio-slider">
+                                </div>
+
+                                <div class="field">
+                                    <span class="color-label" data-i18n="label_wm_color">Color</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="wm-color" value="#ffffff" title="Color" data-i18n-title="label_wm_color">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- The visible guide and JSON-LD share the same localized facts. -->
+        <details id="product-guide" class="product-guide">
+            <summary>Guía del producto y preguntas frecuentes</summary>
+            <article aria-label="Guía del producto y preguntas frecuentes"><h2>Acerca de Shadow Snap</h2><p>Creado por Ward Lu y Shadow Lab, Shadow Snap ayuda a aficionados al cine y creadores de contenido a convertir un solo fotograma y varias líneas de diálogo en una imagen larga con subtítulos. Conserva intacto el primer encuadre y une debajo los cortes de la zona inferior de subtítulos.</p>
+<h2>Funciones principales</h2><ul><li>Conserva intacto el primer fotograma y une automáticamente los siguientes cortes de subtítulos.</li><li>Procesa y exporta imágenes localmente con HTML5 Canvas, sin subir fotos.</li><li>Elige tipografías para chino, latino, tailandés, vietnamita y árabe. Ajusta el tamaño de fuente, los colores, los contornos, los márgenes de seguridad y las marcas de agua.</li><li>Uso gratuito, sin cuenta ni instalación. Importa una imagen a la vez.</li></ul>
+<h2>Crea una imagen con subtítulos en tres pasos</h2><ol><li>Importa un fotograma de película o una captura de vídeo en formato JPG, PNG o WebP.</li><li>Escribe los diálogos, usando una nueva línea para cada corte de subtítulo.</li><li>Ajusta la fuente, la altura del corte y la marca de agua, y selecciona Exportar imagen. En móvil, guarda desde el panel de compartir o mantén pulsada la imagen.</li></ol>
+<h2>Preguntas frecuentes</h2><dl><dt><h3>¿Qué es Shadow Snap?</h3></dt><dd><p>Shadow Snap es un generador gratuito de imágenes de subtítulos cinematográficos que combina una imagen fija con varias líneas de diálogo. No requiere cuenta ni instalación.</p></dd><dt><h3>¿Cómo creo una imagen con diálogos de película?</h3></dt><dd><p>Importa una imagen, escribe los diálogos en líneas separadas, ajusta la fuente y la altura del corte, y exporta. El primer fotograma se mantiene intacto y las siguientes líneas usan cortes de la zona inferior.</p></dd><dt><h3>¿Se suben mis fotos a un servidor?</h3></dt><dd><p>No. El procesamiento y la exportación de imágenes se realizan en la memoria de tu navegador. El sitio carga fuentes y usa estadísticas de visitas; ninguna de las dos cosas requiere subir tus imágenes.</p></dd><dt><h3>¿Cómo guardo una imagen en el móvil?</h3></dt><dd><p>Tras exportar, guarda la imagen desde el panel de compartir del sistema. Los navegadores sin función de compartir abren un panel de guardado: toca Descargar o mantén pulsada la imagen. Si el guardado dentro de WeChat falla, abre la página en el navegador del sistema.</p></dd><dt><h3>¿Qué idiomas y fuentes son compatibles?</h3></dt><dd><p>La interfaz está disponible en 12 idiomas: chino simplificado, chino tradicional, inglés, japonés, coreano, español, portugués, francés, alemán, ruso, indonesio y árabe. Las opciones de fuente incluyen escrituras china, latina, tailandesa, vietnamita y árabe. La visualización depende del navegador y de la disponibilidad de las fuentes.</p></dd></dl>
+<h2>Creador y soporte</h2><p>Creado por Ward Lu y Shadow Lab. Envía tus comentarios a support@shadow.wang o contacta con @Gollumgulu en X.</p>
+<p class="locale-links"><a href="/" hreflang="zh" lang="zh-CN" data-locale="zh">简体中文</a> · <a href="/en/" hreflang="en" lang="en" data-locale="en">English</a> · <a href="/zh-hant/" hreflang="zh-Hant" lang="zh-Hant" data-locale="zh-hant">繁體中文</a> · <a href="/ja/" hreflang="ja" lang="ja" data-locale="ja">日本語</a> · <a href="/ko/" hreflang="ko" lang="ko" data-locale="ko">한국어</a> · <a href="/es/" hreflang="es" lang="es" data-locale="es">Español</a> · <a href="/pt/" hreflang="pt" lang="pt-BR" data-locale="pt">Português</a> · <a href="/fr/" hreflang="fr" lang="fr" data-locale="fr">Français</a> · <a href="/de/" hreflang="de" lang="de" data-locale="de">Deutsch</a> · <a href="/ru/" hreflang="ru" lang="ru" data-locale="ru">Русский</a> · <a href="/id/" hreflang="id" lang="id" data-locale="id">Bahasa Indonesia</a> · <a href="/ar/" hreflang="ar" lang="ar" data-locale="ar">العربية</a></p></article>
+        </details>
+
+        <!-- Directory badges: their image hosts must stay in sync with img-src in vercel.json. -->
+        <nav class="featured-on" aria-label="Directorios de productos que destacan Shadow Snap" data-i18n-aria="aria_featured_on">
+            <span class="featured-on-label" data-i18n="featured_on">Destacado en</span>
+            <a href="https://nicklaunches.com/products/shadow-snap-subtitle-image-maker/" target="_blank" rel="noopener noreferrer"><img src="https://nicklaunches.com/badges/featured.png" alt="Featured on Nick Launches" width="122" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://twelve.tools" target="_blank" rel="noopener noreferrer"><img src="https://twelve.tools/badge0-dark.svg" alt="Featured on Twelve Tools" width="104" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://fazier.com" target="_blank" rel="noopener noreferrer"><img src="https://fazier.com/api/v1/public/badges/launch_badges.svg?badge_type=featured&amp;theme=neutral" alt="Featured on Fazier" width="119" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://xinquji.com" target="_blank" rel="noopener noreferrer"><img data-xinquji-badge src="https://xinquji.com/badge?theme=dark&amp;lang=en" alt="Featured on Xinquji" width="104" height="28" loading="lazy" decoding="async"></a>
+        </nav>
+
+        <!-- 极简单行工作室页脚 -->
+        <footer class="app-footer">
+            <h2 class="sr-only" data-i18n="footer_heading">Productos oficiales y soporte</h2>
+            <a data-portal-link href="https://shadow.wang/es" target="_blank" rel="noopener noreferrer" title="Visitar el sitio web de Shadow Lab" data-i18n-title="title_shadow_lab" class="footer-link-with-logo">
+                <img src="/public/brand_assets/shadow_lab_logo.svg" alt="Shadow Lab" title="Sitio web de Shadow Lab" data-i18n-title="title_shadow_lab_logo" class="footer-logo">
+                <span>Shadow Lab</span>
+            </a>
+            <span class="divider">/</span>
+            <a data-product-link href="https://shadow.wang/es/products/shadow-snap" target="_blank" rel="noopener noreferrer" title="Detalles del producto y resumen de funciones" data-i18n-title="title_product_page"><span data-i18n="footer_product">Producto</span></a>
+            <span class="divider">/</span>
+            <span class="wechat-qr-trigger" title="Escanea para seguir Ward&#39;s AI Journey" tabindex="0" role="button" aria-label="Escanea para seguir Ward&#39;s AI Journey" data-i18n-title="title_wechat_qr" data-i18n-aria="title_wechat_qr">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="footer-icon">
+                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.406-.032zm-2.953 3.028c.506 0 .916.418.916.93s-.41.93-.916.93a.923.923 0 0 1-.916-.93c0-.512.41-.93.916-.93zm4.931 0c.506 0 .916.418.916.93s-.41.93-.916.93a.923.923 0 0 1-.916-.93c0-.512.41-.93.916-.93z" />
+                </svg>
+                <span data-i18n="footer_wechat">Ward&#39;s AI Journey</span>
+                <div class="wechat-qr-popup">
+                    <img src="/public/brand_assets/wechat-public-account.png" alt="Escanea para seguir Ward&#39;s AI Journey" title="Escanea para seguir Ward&#39;s AI Journey" data-i18n-title="title_wechat_qr" data-i18n-alt="title_wechat_qr">
+                    <p data-i18n="footer_wechat_hint">Escanea para seguir Ward&#39;s AI Journey</p>
+                </div>
+            </span>
+            <span class="divider">/</span>
+            <a href="https://xhslink.cn/m/4W1NWyRrxv5" target="_blank" rel="noopener noreferrer" title="Sigue al creador en Xiaohongshu (Ward)" data-i18n-title="title_xiaohongshu"><span data-i18n="footer_xiaohongshu">Xiaohongshu</span></a>
+            <span class="divider">/</span>
+            <a href="https://x.com/Gollumgulu" target="_blank" rel="noopener noreferrer" title="Sigue al creador en X (@Gollumgulu)" data-i18n-title="title_x">𝕏 @Gollumgulu</a>
+            <span class="divider">/</span>
+            <a href="mailto:support@shadow.wang?subject=Shadow%20Snap%20%E6%84%8F%E8%A7%81%E5%8F%8D%E9%A6%88" title="Enviar comentarios por correo a support@shadow.wang" data-i18n-title="title_feedback"><span data-i18n="footer_feedback">Comentarios</span></a>
+        </footer>
+    </div>
+
+    <!-- 移动端保存浮层：系统分享不可用时，提供长按保存与可点击下载两条路径 -->
+    <div id="save-overlay" class="save-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="save-hint">
+        <div class="save-sheet">
+            <p class="save-notice" data-i18n="save_wechat_notice">Mantén pulsada la imagen para guardarla. Si falla, toca ··· arriba a la derecha y elige «Abrir en el navegador».</p>
+            <p class="save-hint" id="save-hint" data-i18n="save_hint">Toca Descargar para guardarla, o mantén pulsada la imagen de abajo y elige «Guardar imagen»</p>
+            <img id="save-preview" class="save-preview" alt="Vista previa de la imagen de subtítulos exportada" data-i18n-alt="save_preview_alt">
+            <div class="save-actions">
+                <a id="save-download" class="save-btn primary" download="shadow_snap.png" data-i18n="btn_download_original">Descargar</a>
+                <button type="button" id="save-close" class="save-btn" data-i18n="btn_close">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示容器 -->
+    <div id="toast-container"></div>
+
+    <script type="module" src="/script.js"></script>
+</body>
+
+</html>

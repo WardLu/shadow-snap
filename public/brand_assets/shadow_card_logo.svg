@@ -1,0 +1,41 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#3B82F6" stop-opacity="1" />
+            <stop offset="50%" stop-color="#8B5CF6" stop-opacity="1" />
+            <stop offset="100%" stop-color="#EC4899" stop-opacity="1" />
+        </linearGradient>
+        <linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.8" />
+            <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.9" />
+        </linearGradient>
+        <filter id="logoGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+    
+    <!-- Back Card (Velocity/Diversity element) -->
+    <rect x="25" y="40" width="55" height="35" rx="5" fill="url(#logoGrad2)" opacity="0.6" transform="rotate(-8 52.5 57.5)"/>
+    
+    <!-- Front Card (Velocity/Diversity element) -->
+    <rect x="35" y="50" width="55" height="35" rx="5" fill="url(#logoGrad1)" opacity="0.9" transform="rotate(-5 62.5 67.5)"/>
+    
+    <!-- Magic Spark (Creation/Magic element) -->
+    <g filter="url(#logoGlow)">
+        <!-- Main Star -->
+        <path d="M85 35 L88 48 L101 51 L88 54 L85 67 L82 54 L69 51 L82 48 Z" fill="url(#logoGrad1)" transform="scale(0.7) translate(30 5)"/>
+        <!-- Small Sparkles -->
+        <circle cx="75" cy="30" r="2.5" fill="#EC4899" opacity="0.8"/>
+        <circle cx="92" cy="38" r="2" fill="#3B82F6" opacity="0.8"/>
+        <circle cx="88" cy="25" r="1.5" fill="#8B5CF6" opacity="0.9"/>
+    </g>
+    
+    <!-- Speed Lines (Dynamic/Speed element) -->
+    <path d="M15 45 L25 45" stroke="#3B82F6" stroke-width="2" opacity="0.4" stroke-linecap="round"/>
+    <path d="M12 55 L28 55" stroke="#8B5CF6" stroke-width="2.5" opacity="0.3" stroke-linecap="round"/>
+    <path d="M18 65 L30 65" stroke="#EC4899" stroke-width="2" opacity="0.35" stroke-linecap="round"/>
+</svg>

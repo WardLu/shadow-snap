@@ -1,0 +1,13 @@
+{
+  "include": ["admissionCommands"],
+  "checks": [
+    { "name": "secrets-scan", "argv": ["gitleaks", "git", "--no-banner", "--redact", "."] },
+    { "name": "seo-and-ci-tests", "argv": ["node", "--test", "tests/seo/*.test.mjs", "tests/ci/*.test.mjs"] }
+  ],
+  "env": {},
+  "unverified": [
+    "仓库没有托管 CI，本地清单以 config/release-production.json 的 admissionCommands 为准，另加 SEO 与本地门禁测试",
+    "secrets-scan（gitleaks）：全历史扫描，用本机安装的 gitleaks（默认规则），版本未锁定",
+    "本机被 gitignore 的 .env* 文件可能被测试读取；在新建 worktree 中运行可避免"
+  ]
+}

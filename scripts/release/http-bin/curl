@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Vercel prepends --url/headers, so -q in passthrough flags is not first.
+# Never inspect or log its protection header; prepend -q at the native boundary.
+exec "${SHADOW_CURL_BIN:?native curl path required}" --disable "$@"

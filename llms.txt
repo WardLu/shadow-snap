@@ -1,0 +1,40 @@
+# Shadow Snap
+> A free, open-source browser tool (影瞬) that turns one movie still and multiple dialogue lines into a cinematic subtitle long image using local HTML5 Canvas rendering.
+
+- Website (English): https://snap.shadow.wang/en/
+- Website (Simplified Chinese): https://snap.shadow.wang/
+- Sitemap: https://snap.shadow.wang/sitemap.xml
+- Product page (Shadow Lab): https://shadow.wang/en/products/shadow-snap
+- Source code (MIT License): https://github.com/WardLu/shadow-snap
+- Support: support@shadow.wang
+
+## What the product does
+Shadow Snap helps film fans, reviewers, and content creators combine a single movie still (JPG, PNG, or WebP) with multi-line dialogue into a vertical subtitle collage.
+
+The first frame stays intact while each subsequent dialogue line stitches a clean slice from the lower subtitle region beneath it. Users can adjust font family (Chinese, Latin, Thai, Vietnamese, and Arabic scripts), font size, colors, stroke outline, slice height, safe margins, and optional watermarks with live preview.
+
+## Privacy, pricing, and access
+- 100% free and open source under the MIT License.
+- No account, login, installation, subscription, paywall, or forced watermark.
+- 100% client-side processing in browser memory with HTML5 Canvas: photos are never uploaded to a server. (The site loads fonts and website analytics, neither of which requires uploading user images.)
+- Supports desktop export as well as mobile save flows via the system share sheet or long-press save panel.
+
+## Localized editions
+- 简体中文 (zh-CN): https://snap.shadow.wang/
+- English (en): https://snap.shadow.wang/en/
+- 繁體中文 (zh-Hant): https://snap.shadow.wang/zh-hant/
+- 日本語 (ja): https://snap.shadow.wang/ja/
+- 한국어 (ko): https://snap.shadow.wang/ko/
+- Español (es): https://snap.shadow.wang/es/
+- Português (pt-BR): https://snap.shadow.wang/pt/
+- Français (fr): https://snap.shadow.wang/fr/
+- Deutsch (de): https://snap.shadow.wang/de/
+- Русский (ru): https://snap.shadow.wang/ru/
+- Bahasa Indonesia (id): https://snap.shadow.wang/id/
+- العربية (ar): https://snap.shadow.wang/ar/
+
+## Creator and organization
+- Created by Ward Lu (https://wardlu.com) at Shadow Lab (https://shadow.wang).
+
+## Scope
+Shadow Snap is a client-side static subtitle image maker. This overview makes no claim of video file transcoding, automated speech-to-text transcription, cloud storage, server-side rendering, or user accounts.

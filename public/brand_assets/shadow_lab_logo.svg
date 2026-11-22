@@ -1,0 +1,7 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Shadow Lab mark, current paper-white and amber recolor</title>
+  <path d="M35 75C20 75 20 35 50 35C80 35 80 75 65 75V35C65 25 90 25 90 50" stroke="#eee9de" stroke-width="11" stroke-linecap="round"/>
+  <path d="M35 75C20 75 20 35 50 35C80 35 80 75 65 75V35C65 25 90 25 90 50" stroke="#d6a56c" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 17"/>
+  <circle cx="35" cy="75" r="4" fill="#d6a56c"/>
+  <circle cx="90" cy="50" r="4" fill="#eee9de"/>
+</svg>

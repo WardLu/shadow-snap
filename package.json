@@ -1,0 +1,20 @@
+{
+  "name": "shadow-snap",
+  "version": "1.5.3",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "release:production": "bash scripts/release/deploy-production.sh",
+    "test:release-gate": "node --test tests/release/contracts/*.test.mjs tests/release/repository-config.test.mjs",
+    "validate:static": "node scripts/validate-static-site.mjs",
+    "seo:generate": "node scripts/seo/generate-localized-pages.mjs",
+    "seo:check": "node scripts/seo/generate-localized-pages.mjs --check",
+    "preview": "node scripts/preview-static-site.mjs",
+    "ci": "node scripts/ci/local-ci.mjs run",
+    "ci:check": "node scripts/ci/local-ci.mjs check",
+    "fonts:subset": "node scripts/fonts/noto-sans-sc-subset.mjs"
+  }
+}

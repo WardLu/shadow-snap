@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
+  <title id="title">Shadow Snap 影瞬</title>
+  <desc id="desc">Shadow Snap turns one movie still and several lines of dialogue into a cinematic subtitle long image in the browser. The illustration shows a still with the first subtitle line, followed by three strips copied from the still's bottom band, one per extra line.</desc>
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d3440"/>
+      <stop offset="0.62" stop-color="#2a2552"/>
+      <stop offset="1" stop-color="#3b2a55"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14203a"/>
+      <stop offset="1" stop-color="#0a111f"/>
+    </linearGradient>
+    <radialGradient id="lamp" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fbbf24" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fbbf24" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.5" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <clipPath id="longImage">
+      <rect x="0" y="0" width="352" height="332" rx="8"/>
+    </clipPath>
+    <!-- The still's bottom band (44 high). Each extra line repeats it. -->
+    <g id="band">
+      <rect x="0" y="0" width="352" height="44" fill="url(#sea)"/>
+      <path d="M0 9 H352 M0 21 H352 M0 34 H352" stroke="#38bdf8" stroke-opacity="0.08" stroke-width="2"/>
+    </g>
+    <g id="subtitleShort">
+      <rect x="-86" y="-6" width="172" height="12" rx="6" fill="#000000" fill-opacity="0.55"/>
+      <rect x="-84" y="-4" width="168" height="8" rx="4" fill="#f8fafc"/>
+    </g>
+    <g id="subtitleLong">
+      <rect x="-122" y="-6" width="244" height="12" rx="6" fill="#000000" fill-opacity="0.55"/>
+      <rect x="-120" y="-4" width="240" height="8" rx="4" fill="#f8fafc"/>
+    </g>
+  </defs>
+
+  <rect width="1200" height="440" rx="24" fill="#090a0f"/>
+
+  <g id="title-block" transform="translate(64 0)">
+    <text x="0" y="104" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="3" fill="#38bdf8">CINEMATIC SUBTITLE LONG IMAGES</text>
+    <text x="0" y="186" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif" font-size="72" font-weight="700" fill="#f8fafc">Shadow Snap<tspan dx="22" font-size="56" font-weight="600" fill="#fbbf24">影瞬</tspan></text>
+    <rect x="0" y="212" width="96" height="4" rx="2" fill="url(#brand)"/>
+    <text font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" fill="#cbd5e1">
+      <tspan x="0" y="262">One movie still + your lines of dialogue</tspan>
+      <tspan x="0" y="298">= one cinematic subtitle long image.</tspan>
+    </text>
+    <text x="0" y="342" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="600" fill="#f8fafc">Made in your browser. Nothing is uploaded.</text>
+    <text x="0" y="392" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#94a3b8">Canvas 2D  ·  12 UI languages  ·  MIT</text>
+  </g>
+
+  <g id="project-proof" transform="translate(776 54)">
+    <!-- viewfinder corner marks, as in the app's stage -->
+    <path d="M-16 8 V-16 H8 M344 -16 H368 V8 M368 324 V348 H344 M8 348 H-16 V324" fill="none" stroke="#38bdf8" stroke-width="3" stroke-opacity="0.85"/>
+
+    <g clip-path="url(#longImage)">
+      <!-- still: sky, shore lights, lamp, sea -->
+      <rect x="0" y="0" width="352" height="198" fill="url(#sky)"/>
+      <circle cx="58" cy="78" r="46" fill="url(#lamp)"/>
+      <rect x="56" y="78" width="3" height="76" fill="#0b0f1a"/>
+      <circle cx="58" cy="78" r="5" fill="#fde68a"/>
+      <path d="M0 132 C 90 120, 200 118, 352 128 L352 154 L0 154 Z" fill="#141a2e"/>
+      <g fill="#fbbf24" fill-opacity="0.75">
+        <circle cx="150" cy="126" r="1.8"/><circle cx="172" cy="124" r="1.8"/><circle cx="196" cy="123" r="1.8"/>
+        <circle cx="232" cy="122" r="1.8"/><circle cx="268" cy="123" r="1.8"/><circle cx="300" cy="125" r="1.8"/>
+      </g>
+      <rect x="0" y="154" width="352" height="44" fill="url(#sea)"/>
+      <use href="#band" x="0" y="154"/>
+
+      <!-- extra lines: one copy of the bottom band each -->
+      <use href="#band" x="0" y="198"/>
+      <use href="#band" x="0" y="242"/>
+      <use href="#band" x="0" y="286"/>
+      <path d="M0 198 H352 M0 242 H352 M0 286 H352" stroke="#818cf8" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- subtitles -->
+      <use href="#subtitleLong" x="176" y="176"/>
+      <use href="#subtitleShort" x="176" y="220"/>
+      <use href="#subtitleLong" x="176" y="264"/>
+      <use href="#subtitleShort" x="176" y="308"/>
+    </g>
+    <rect x="0" y="154" width="352" height="44" rx="0" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4"/>
+
+    <!-- the bottom band is copied once for every extra line -->
+    <g fill="none" stroke="#fbbf24" stroke-width="2" stroke-opacity="0.9">
+      <path d="M354 176 H376 V308"/>
+      <path d="M376 220 H360 M376 264 H360 M376 308 H360"/>
+    </g>
+    <g fill="#fbbf24">
+      <path d="M356 220 l7 -5 v10 z"/><path d="M356 264 l7 -5 v10 z"/><path d="M356 308 l7 -5 v10 z"/>
+    </g>
+
+    <!-- line numbers -->
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#94a3b8" text-anchor="end">
+      <text x="-30" y="182">01</text>
+      <text x="-30" y="226">02</text>
+      <text x="-30" y="270">03</text>
+      <text x="-30" y="314">04</text>
+    </g>
+  </g>
+</svg>

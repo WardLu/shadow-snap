@@ -1,0 +1,8 @@
+.vercel
+.env*
+.DS_Store
+node_modules/
+x-article-publisher-skill/
+.release-state/
+.mimosa/
+.worktrees/

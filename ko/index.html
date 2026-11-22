@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ko" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- 首页按浏览器语言跳转；同步经典脚本，放在样式表之前，避免先闪一下默认语言 -->
+    <script src="/locale-redirect.js"></script>
+    <!-- 移动端浏览器界面与页面同色，避免状态栏/地址栏跳色 -->
+    <meta name="theme-color" content="#090a0f">
+    <meta name="color-scheme" content="dark">
+    <title data-i18n="page_title">Shadow Snap | 무료 시네마틱 자막 이미지 메이커</title>
+    <meta name="description" content="Shadow Snap은 영화 스틸컷 한 장과 여러 줄의 대사로 시네마틱 자막 이미지를 만드는 무료 도구입니다. 글꼴, 색상, 워터마크를 조정한 뒤 브라우저에서 로컬로 내보낼 수 있습니다.">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://snap.shadow.wang/ko/">
+    <link rel="alternate" hreflang="zh" href="https://snap.shadow.wang/">
+    <link rel="alternate" hreflang="en" href="https://snap.shadow.wang/en/">
+    <link rel="alternate" hreflang="zh-Hant" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-TW" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-HK" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-MO" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="ja" href="https://snap.shadow.wang/ja/">
+    <link rel="alternate" hreflang="ko" href="https://snap.shadow.wang/ko/">
+    <link rel="alternate" hreflang="es" href="https://snap.shadow.wang/es/">
+    <link rel="alternate" hreflang="pt" href="https://snap.shadow.wang/pt/">
+    <link rel="alternate" hreflang="fr" href="https://snap.shadow.wang/fr/">
+    <link rel="alternate" hreflang="de" href="https://snap.shadow.wang/de/">
+    <link rel="alternate" hreflang="ru" href="https://snap.shadow.wang/ru/">
+    <link rel="alternate" hreflang="id" href="https://snap.shadow.wang/id/">
+    <link rel="alternate" hreflang="ar" href="https://snap.shadow.wang/ar/">
+    <link rel="alternate" hreflang="x-default" href="https://snap.shadow.wang/en/">
+    <meta name="application-name" content="Shadow Snap">
+    <meta name="author" content="Ward Lu">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Shadow Snap">
+    <meta property="og:title" content="Shadow Snap | 무료 시네마틱 자막 이미지 메이커">
+    <meta property="og:description" content="Shadow Snap은 영화 스틸컷 한 장과 여러 줄의 대사로 시네마틱 자막 이미지를 만드는 무료 도구입니다. 글꼴, 색상, 워터마크를 조정한 뒤 브라우저에서 로컬로 내보낼 수 있습니다.">
+    <meta property="og:url" content="https://snap.shadow.wang/ko/">
+    <meta property="og:locale" content="ko_KR">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="zh_TW">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="pt_BR">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="ru_RU">
+    <meta property="og:locale:alternate" content="id_ID">
+    <meta property="og:locale:alternate" content="ar_AR">
+    <meta property="og:image" content="https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Shadow Snap">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@Gollumgulu">
+    <meta name="twitter:creator" content="@Gollumgulu">
+    <meta name="twitter:title" content="Shadow Snap | 무료 시네마틱 자막 이미지 메이커">
+    <meta name="twitter:description" content="Shadow Snap은 영화 스틸컷 한 장과 여러 줄의 대사로 시네마틱 자막 이미지를 만드는 무료 도구입니다. 글꼴, 색상, 워터마크를 조정한 뒤 브라우저에서 로컬로 내보낼 수 있습니다.">
+    <meta name="twitter:image" content="https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png">
+    <meta name="twitter:image:alt" content="Shadow Snap">
+    <!-- 引入浏览器小图标 -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/public/brand_assets/shadow_snap.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/brand_assets/icon-32.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="/public/brand_assets/icon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/brand_assets/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/brand_assets/icon-192.png">
+    <!-- 同域自托管字体（多语言 + 特色字体），来源与许可见 public/fonts/fonts.lock.json -->
+    <link rel="stylesheet" href="/public/fonts/fonts.css">
+    <link rel="stylesheet" href="/public/fonts-subset/fonts-subset.css">
+    <link rel="stylesheet" href="/style.css">
+    <!-- Vercel Web Analytics（自托管路由：同源加载与上报，无需放宽 CSP） -->
+    <script defer src="/_vercel/insights/script.js" data-sdkn="@vercel/analytics" data-sdkv="1.6.1"></script>
+    <!-- 核心 WebApplication 结构化数据 (Strict Schema for Release Controller) -->
+    <script id="shadow-snap-structured-data" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "@id": "https://snap.shadow.wang/#application",
+  "name": "Shadow Snap",
+  "alternateName": "影瞬",
+  "url": "https://snap.shadow.wang/ko/",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web, iOS, Android, macOS, Windows",
+  "browserRequirements": "Requires modern web browser with HTML5 Canvas support",
+  "softwareVersion": "1.5.3",
+  "isAccessibleForFree": true,
+  "description": "Shadow Snap은 영화 스틸컷 한 장과 여러 줄의 대사로 시네마틱 자막 이미지를 만드는 무료 도구입니다. 글꼴, 색상, 워터마크를 조정한 뒤 브라우저에서 로컬로 내보낼 수 있습니다.",
+  "image": "https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png",
+  "featureList": [
+    "첫 프레임을 그대로 유지하고, 이어지는 자막 슬라이스를 자동으로 붙입니다.",
+    "HTML5 Canvas로 브라우저 안에서 이미지를 로컬로 처리하고 내보내며, 사진을 업로드하지 않습니다.",
+    "중국어, 라틴, 태국어, 베트남어, 아랍어 글꼴을 선택할 수 있으며, 글자 크기, 색상, 외곽선, 안전 여백, 워터마크를 조정할 수 있습니다.",
+    "계정이나 설치 없이 무료로 사용할 수 있습니다. 한 번에 이미지 한 장씩 가져올 수 있습니다."
+  ],
+  "offers": {
+    "@type": "Offer",
+    "name": "Free",
+    "price": "0",
+    "priceCurrency": "USD",
+    "url": "https://snap.shadow.wang/ko/"
+  },
+  "author": {
+    "@id": "https://wardlu.com/#ward"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "@id": "https://shadow.wang/#organization",
+    "name": "Shadow Lab",
+    "url": "https://shadow.wang"
+  },
+  "inLanguage": "ko"
+}
+    </script>
+    <!-- 全域 GEO 与富媒体图谱扩展 (Rich Knowledge Graph) -->
+    <script id="shadow-snap-geo-data" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://snap.shadow.wang/#website",
+      "url": "https://snap.shadow.wang/",
+      "name": "Shadow Snap",
+      "alternateName": "影瞬",
+      "description": "Shadow Snap은 영화 스틸컷 한 장과 여러 줄의 대사로 시네마틱 자막 이미지를 만드는 무료 도구입니다. 글꼴, 색상, 워터마크를 조정한 뒤 브라우저에서 로컬로 내보낼 수 있습니다.",
+      "publisher": {
+        "@id": "https://shadow.wang/#organization"
+      },
+      "inLanguage": [
+        "zh-CN",
+        "en-US"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://shadow.wang/#organization",
+      "name": "Shadow Lab",
+      "url": "https://shadow.wang",
+      "logo": "https://shadow.wang/brand_assets/shadow_lab_logo.png",
+      "founder": {
+        "@type": "Person",
+        "@id": "https://wardlu.com/#ward",
+        "name": "Ward Lu",
+        "url": "https://wardlu.com"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "support@shadow.wang",
+        "url": "https://shadow.wang"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://wardlu.com/#ward",
+      "name": "Ward Lu",
+      "jobTitle": "Creator of Shadow Lab",
+      "url": "https://wardlu.com",
+      "sameAs": [
+        "https://x.com/Gollumgulu",
+        "https://github.com/WardLu",
+        "https://xhslink.cn/m/4W1NWyRrxv5",
+        "https://v.douyin.com/1y06PMohfoE/"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://snap.shadow.wang/ko/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Shadow Snap이란 무엇인가요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Shadow Snap은 이미지 한 장과 여러 줄의 대사를 결합하는 무료 시네마틱 자막 이미지 메이커입니다. 계정이나 설치가 필요하지 않습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "영화 대사 이미지는 어떻게 만드나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "이미지를 한 장 가져온 뒤 각 줄에 대사를 입력하고, 글꼴과 슬라이스 높이를 조정한 다음 내보내면 됩니다. 첫 프레임은 그대로 유지되고, 이후 대사는 아래 영역의 슬라이스를 사용합니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "사진이 서버에 업로드되나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "아니요. 이미지 처리와 내보내기는 로컬 브라우저 메모리에서 실행됩니다. 사이트는 글꼴을 불러오고 웹사이트 분석 도구를 사용하지만, 어느 쪽도 이미지를 업로드하지 않습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "모바일에서 이미지를 어떻게 저장하나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "내보낸 뒤 시스템 공유 시트를 통해 이미지를 저장하세요. 공유를 지원하지 않는 브라우저에서는 저장 패널이 열리며, 다운로드를 누르거나 이미지를 길게 누르면 됩니다. WeChat 안에서 저장이 실패하면 시스템 브라우저에서 페이지를 여세요."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "어떤 언어와 글꼴을 지원하나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "인터페이스는 12개 언어로 제공됩니다: 간체 중국어, 번체 중국어, 영어, 일본어, 한국어, 스페인어, 포르투갈어, 프랑스어, 독일어, 러시아어, 인도네시아어, 아랍어. 글꼴 옵션에는 중국어, 라틴, 태국어, 베트남어, 아랍어 문자가 포함됩니다. 실제 표시는 브라우저와 글꼴 가용성에 따라 달라집니다."
+          }
+        }
+      ],
+      "inLanguage": "ko"
+    }
+  ]
+}
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 院线工作室顶部导航 -->
+        <header class="studio-header">
+            <div class="header-brand-wrap">
+                <h1 data-i18n="header_title"><img src='/public/brand_assets/shadow_snap.svg' alt='Logo' title='Shadow Snap 로고' class='header-logo'> Shadow Snap</h1>
+                <span class="studio-badge">CINEMA STUDIO</span>
+            </div>
+
+            <div class="header-tagline" data-i18n="header_desc">시네마 롱폼 캔버스 · 전문 자막 스튜디오</div>
+
+            <div class="header-actions">
+                <div class="lang-switch">
+                    <select id="lang-select" class="lang-select" aria-label="인터페이스 언어 선택" data-i18n-aria="title_lang">
+                        <option value="zh">简体中文</option>
+                        <option value="en">English</option>
+                        <option value="zh-hant">繁體中文</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko" selected>한국어</option>
+                        <option value="es">Español</option>
+                        <option value="pt">Português</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="ru">Русский</option>
+                        <option value="id">Bahasa Indonesia</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                </div>
+                <button id="download-btn" class="studio-export-btn" data-i18n-title="title_export" title="초고화질 롱 이미지 내보내기">
+                    <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span class="btn-text" data-i18n="btn_save_img">이미지 내보내기</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主体：65% 画布预览区 + 35% 检查器面板 -->
+        <main class="studio-workspace">
+            <!-- 胶片画布区 (65%) -->
+            <section class="cinema-stage-section">
+                <h2 class="sr-only" data-i18n="stage_heading">영화 자막 캔버스 미리보기</h2>
+                <div class="stage-topbar">
+                    <div class="stage-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text" id="stage-status-text" data-i18n="stage_ready">스테이지 준비 완료 · 스틸컷 대기 중</span>
+                    </div>
+                    <div class="aspect-indicator">2.39:1 CINEMASCOPE READY</div>
+                </div>
+
+                <div class="canvas-viewport" id="canvas-viewport">
+                    <!-- 初始未载入状态：独立的高清电影取景框，绝不被 dummy canvas 裁切遮挡 -->
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-aspect-frame">
+                            <span class="frame-corner top-left"></span>
+                            <span class="frame-corner top-right"></span>
+                            <span class="frame-corner bottom-left"></span>
+                            <span class="frame-corner bottom-right"></span>
+                            <div class="drop-icon-box">
+                                <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            </div>
+                            <div class="drop-main-text" data-i18n="drop_zone_text">영화 스틸컷을 여기에 끌어다 놓거나 클릭해서 가져오세요</div>
+                            <div class="drop-sub-text" data-i18n="drop_sub_text">JPG / PNG / WebP 스틸컷 지원 · 브라우저에서 로컬로 처리됩니다</div>
+                            <div class="drop-action-pill">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                <span data-i18n="btn_select_img">스틸컷 변경</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 载入剧照后的高清画板 -->
+                    <div class="canvas-wrapper hidden" id="canvas-wrapper">
+                        <canvas id="subtitle-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- 底部工作台状态与控制坞（与画板视口流式分离，绝不重叠遮挡任何台词与画面） -->
+                <div class="stage-dock-bar">
+                    <div class="dock-left">
+                        <label class="dock-btn upload-trigger" for="image-input" title="로컬 스틸컷 선택" data-i18n-title="title_upload">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <span data-i18n="btn_select_img">스틸컷 변경</span>
+                        </label>
+                        <input type="file" id="image-input" accept="image/png, image/jpeg, image/webp, image/jpg, .png, .jpg, .jpeg, .webp, image/*" class="sr-only">
+                        <button id="reset-btn" class="dock-btn danger-trigger" title="현재 스틸컷과 대사 지우기" data-i18n-title="title_clear">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            <span data-i18n="btn_delete_img">캔버스 비우기</span>
+                        </button>
+                    </div>
+                    <div class="dock-center">
+                        <div class="view-mode-toggle" role="group" aria-label="캔버스 표시 모드" data-i18n-aria="aria_view_mode">
+                            <button type="button" id="view-fit-btn" class="view-toggle-btn active" title="맞춤: 전체 화면과 모든 자막 줄을 표시합니다" data-i18n-title="title_view_fit">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                                <span data-i18n="view_fit">맞춤</span>
+                            </button>
+                            <button type="button" id="view-actual-btn" class="view-toggle-btn" title="1:1: 원본 크기로 픽셀 단위 세부 사항을 확인합니다" data-i18n-title="title_view_actual">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <span data-i18n="view_actual">1:1</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dock-right">
+                        <span class="dock-badge">Canvas 2D Engine</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 检查器控制面板 (35%) -->
+            <aside class="control-panel">
+                <h2 class="sr-only" data-i18n="controls_heading">자막 스타일 및 이어 붙이기 설정</h2>
+
+                <!-- 分段选项卡切换 -->
+                <div class="inspector-tabs" role="tablist">
+                    <button type="button" class="tab-btn active" id="tab-btn-script" data-tab="script" role="tab" aria-selected="true" data-i18n="tab_script">대사</button>
+                    <button type="button" class="tab-btn" id="tab-btn-style" data-tab="style" role="tab" aria-selected="false" data-i18n="tab_style">타이포그래피</button>
+                    <button type="button" class="tab-btn" id="tab-btn-canvas" data-tab="canvas" role="tab" aria-selected="false" data-i18n="tab_canvas">프레이밍</button>
+                </div>
+
+                <!-- 面板内容容器 -->
+                <div class="inspector-content">
+                    <!-- Tab 1: 台词脚本 -->
+                    <div class="tab-pane active" id="pane-script">
+                        <div class="pane-section">
+                            <div class="quote-tags-wrapper">
+                                <div class="tags-label" data-i18n="label_quote_tags">명대사</div>
+                                <div class="quote-chips">
+                                    <button type="button" class="quote-chip" data-quote="pi" data-i18n="chip_pi">라이프 오브 파이</button>
+                                    <button type="button" class="quote-chip" data-quote="interstellar" data-i18n="chip_interstellar">인터스텔라</button>
+                                    <button type="button" class="quote-chip" data-quote="mood" data-i18n="chip_mood">화양연화</button>
+                                    <button type="button" class="quote-chip" data-quote="truman" data-i18n="chip_truman">트루먼 쇼</button>
+                                </div>
+                            </div>
+
+                            <div class="script-editor-box">
+                                <div class="editor-header">
+                                    <span class="editor-label" data-i18n="group_subtitle">대사 스크립트</span>
+                                    <span class="editor-hint" data-i18n="hint_enter">Enter를 누르면 슬라이스가 생성됩니다</span>
+                                </div>
+                                <textarea id="subtitle-text" placeholder="영화 대사를 입력하고 Enter를 누르면 새 자막 슬라이스가 생성됩니다..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: 字体质感与排版 -->
+                    <div class="tab-pane" id="pane-style">
+                        <div class="pane-section">
+                            <!-- 胶片调色预设 -->
+                            <div class="preset-section">
+                                <div class="section-label" data-i18n="label_presets">필름 색보정 프리셋</div>
+                                <div class="preset-grid">
+                                    <button type="button" class="preset-card active" data-preset="nolan">
+                                        <span class="preset-swatch swatch-nolan">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_nolan_name">Nolan White</span>
+                                        <span class="preset-desc" data-i18n="preset_nolan_desc">순백 · 검은 외곽선</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="wong">
+                                        <span class="preset-swatch swatch-wong">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_wong_name">왕가위 골드</span>
+                                        <span class="preset-desc" data-i18n="preset_wong_desc">따뜻한 레트로 골드 · 무드 있는 분위기</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="tokyo">
+                                        <span class="preset-swatch swatch-tokyo">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_tokyo_name">도쿄 시안</span>
+                                        <span class="preset-desc" data-i18n="preset_tokyo_desc">차가운 시안 · 얇은 외곽선</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="french">
+                                        <span class="preset-swatch swatch-french">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_french_name">미니멀 모노</span>
+                                        <span class="preset-desc" data-i18n="preset_french_desc">높은 대비 · 큰 글자</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 字体微调 -->
+                            <div class="field">
+                                <label for="font-family" data-i18n="label_font">글꼴</label>
+                                <select id="font-family" class="studio-select">
+                                    <option value="'Noto Sans SC', sans-serif" data-i18n="font_sc">중국어 (Noto Sans SC)</option>
+                                    <option value="'Roboto', sans-serif" data-i18n="font_roboto">라틴 문자 (Roboto)</option>
+                                    <option value="'IBM Plex Mono', monospace" data-i18n="font_mono">고정폭 (IBM Plex Mono)</option>
+                                    <option value="'Noto Sans Thai', sans-serif" data-i18n="font_thai">태국어 (Noto Sans Thai)</option>
+                                    <option value="'Noto Sans Vietnamese', sans-serif" data-i18n="font_vietnamese">베트남어 (Noto Sans Vietnamese)</option>
+                                    <option value="'Noto Sans Arabic', sans-serif" data-i18n="font_arabic">아랍어 (Noto Sans Arabic)</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_font_size">글자 크기</span>
+                                    <span class="slider-value"><span id="font-size-val">22</span> px</span>
+                                </div>
+                                <input type="range" id="font-size" min="12" max="140" value="22" class="studio-slider">
+                            </div>
+
+                            <div class="field colors-row">
+                                <div class="color-item">
+                                    <span class="color-label" data-i18n="color_text">글자 색상</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="font-color" value="#ffffff" title="글자 색상" data-i18n-title="color_text">
+                                    </div>
+                                </div>
+                                <div class="color-item">
+                                    <span class="color-label" data-i18n="color_stroke">외곽선 색상</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="stroke-color" value="#000000" title="외곽선 색상" data-i18n-title="color_stroke">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_bar_height">슬라이스 높이</span>
+                                    <span class="slider-value"><span id="bar-height-val">48</span> px</span>
+                                </div>
+                                <input type="range" id="bar-height" min="20" max="260" value="48" class="studio-slider">
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_padding_x">좌우 안전 여백</span>
+                                    <span class="slider-value"><span id="padding-x-val">32</span> px</span>
+                                </div>
+                                <input type="range" id="padding-x" min="0" max="120" value="32" class="studio-slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: 水印与画幅 -->
+                    <div class="tab-pane" id="pane-canvas">
+                        <div class="pane-section">
+                            <div class="switch-row">
+                                <label for="wm-enable" data-i18n="label_wm_enable" class="switch-label">워터마크 사용</label>
+                                <input type="checkbox" id="wm-enable" class="studio-switch">
+                            </div>
+
+                            <div id="wm-controls" class="wm-controls-container disabled-group">
+                                <div class="field">
+                                    <label for="wm-text" data-i18n="label_wm_content">워터마크 텍스트</label>
+                                    <input type="text" id="wm-text" value="Shadow Snap · Cinema Studio" class="studio-input">
+                                </div>
+
+                                <div class="field">
+                                    <label for="wm-pos" data-i18n="label_wm_pos">위치</label>
+                                    <select id="wm-pos" class="studio-select">
+                                        <option value="bottom-right" data-i18n="pos_bottom_right">오른쪽 아래</option>
+                                        <option value="bottom-left" data-i18n="pos_bottom_left">왼쪽 아래</option>
+                                        <option value="top-right" data-i18n="pos_top_right">오른쪽 위</option>
+                                        <option value="top-left" data-i18n="pos_top_left">왼쪽 위</option>
+                                        <option value="center" data-i18n="pos_center">가운데</option>
+                                    </select>
+                                </div>
+
+                                <div class="field">
+                                    <div class="slider-header">
+                                        <span data-i18n="label_wm_opacity">불투명도</span>
+                                        <span class="slider-value"><span id="wm-opacity-val">0.5</span></span>
+                                    </div>
+                                    <input type="range" id="wm-opacity" min="0.1" max="1" step="0.05" value="0.5" class="studio-slider">
+                                </div>
+
+                                <div class="field">
+                                    <div class="slider-header">
+                                        <span data-i18n="label_wm_size">글자 크기</span>
+                                        <span class="slider-value"><span id="wm-size-val">14</span> px</span>
+                                    </div>
+                                    <input type="range" id="wm-size" min="10" max="40" value="14" class="studio-slider">
+                                </div>
+
+                                <div class="field">
+                                    <span class="color-label" data-i18n="label_wm_color">색상</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="wm-color" value="#ffffff" title="색상" data-i18n-title="label_wm_color">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- The visible guide and JSON-LD share the same localized facts. -->
+        <details id="product-guide" class="product-guide">
+            <summary>제품 가이드 및 자주 묻는 질문</summary>
+            <article aria-label="제품 가이드 및 자주 묻는 질문"><h2>Shadow Snap 소개</h2><p>Ward Lu와 Shadow Lab이 만든 Shadow Snap은 영화 팬과 콘텐츠 크리에이터가 영화 스틸컷 한 장과 여러 줄의 대사를 자막 롱 이미지로 만들 수 있도록 돕습니다. 첫 프레임의 구도는 그대로 유지하고, 그 아래 자막 영역의 슬라이스를 이어 붙입니다.</p>
+<h2>주요 기능</h2><ul><li>첫 프레임을 그대로 유지하고, 이어지는 자막 슬라이스를 자동으로 붙입니다.</li><li>HTML5 Canvas로 브라우저 안에서 이미지를 로컬로 처리하고 내보내며, 사진을 업로드하지 않습니다.</li><li>중국어, 라틴, 태국어, 베트남어, 아랍어 글꼴을 선택할 수 있으며, 글자 크기, 색상, 외곽선, 안전 여백, 워터마크를 조정할 수 있습니다.</li><li>계정이나 설치 없이 무료로 사용할 수 있습니다. 한 번에 이미지 한 장씩 가져올 수 있습니다.</li></ul>
+<h2>세 단계로 자막 이미지 만들기</h2><ol><li>JPG, PNG 또는 WebP 형식의 영화 스틸컷이나 영상 스크린샷을 가져옵니다.</li><li>대사를 입력합니다. 자막 슬라이스마다 한 줄씩 입력합니다.</li><li>글꼴, 슬라이스 높이, 워터마크를 조정한 뒤 “이미지 내보내기”를 선택합니다. 모바일에서는 공유 시트를 통해 저장하거나 이미지를 길게 누르세요.</li></ol>
+<h2>자주 묻는 질문</h2><dl><dt><h3>Shadow Snap이란 무엇인가요?</h3></dt><dd><p>Shadow Snap은 이미지 한 장과 여러 줄의 대사를 결합하는 무료 시네마틱 자막 이미지 메이커입니다. 계정이나 설치가 필요하지 않습니다.</p></dd><dt><h3>영화 대사 이미지는 어떻게 만드나요?</h3></dt><dd><p>이미지를 한 장 가져온 뒤 각 줄에 대사를 입력하고, 글꼴과 슬라이스 높이를 조정한 다음 내보내면 됩니다. 첫 프레임은 그대로 유지되고, 이후 대사는 아래 영역의 슬라이스를 사용합니다.</p></dd><dt><h3>사진이 서버에 업로드되나요?</h3></dt><dd><p>아니요. 이미지 처리와 내보내기는 로컬 브라우저 메모리에서 실행됩니다. 사이트는 글꼴을 불러오고 웹사이트 분석 도구를 사용하지만, 어느 쪽도 이미지를 업로드하지 않습니다.</p></dd><dt><h3>모바일에서 이미지를 어떻게 저장하나요?</h3></dt><dd><p>내보낸 뒤 시스템 공유 시트를 통해 이미지를 저장하세요. 공유를 지원하지 않는 브라우저에서는 저장 패널이 열리며, 다운로드를 누르거나 이미지를 길게 누르면 됩니다. WeChat 안에서 저장이 실패하면 시스템 브라우저에서 페이지를 여세요.</p></dd><dt><h3>어떤 언어와 글꼴을 지원하나요?</h3></dt><dd><p>인터페이스는 12개 언어로 제공됩니다: 간체 중국어, 번체 중국어, 영어, 일본어, 한국어, 스페인어, 포르투갈어, 프랑스어, 독일어, 러시아어, 인도네시아어, 아랍어. 글꼴 옵션에는 중국어, 라틴, 태국어, 베트남어, 아랍어 문자가 포함됩니다. 실제 표시는 브라우저와 글꼴 가용성에 따라 달라집니다.</p></dd></dl>
+<h2>제작자 및 지원</h2><p>Ward Lu와 Shadow Lab이 만들었습니다. 의견은 support@shadow.wang로 보내 주시거나 X의 @Gollumgulu로 연락해 주세요.</p>
+<p class="locale-links"><a href="/" hreflang="zh" lang="zh-CN" data-locale="zh">简体中文</a> · <a href="/en/" hreflang="en" lang="en" data-locale="en">English</a> · <a href="/zh-hant/" hreflang="zh-Hant" lang="zh-Hant" data-locale="zh-hant">繁體中文</a> · <a href="/ja/" hreflang="ja" lang="ja" data-locale="ja">日本語</a> · <a href="/ko/" hreflang="ko" lang="ko" data-locale="ko">한국어</a> · <a href="/es/" hreflang="es" lang="es" data-locale="es">Español</a> · <a href="/pt/" hreflang="pt" lang="pt-BR" data-locale="pt">Português</a> · <a href="/fr/" hreflang="fr" lang="fr" data-locale="fr">Français</a> · <a href="/de/" hreflang="de" lang="de" data-locale="de">Deutsch</a> · <a href="/ru/" hreflang="ru" lang="ru" data-locale="ru">Русский</a> · <a href="/id/" hreflang="id" lang="id" data-locale="id">Bahasa Indonesia</a> · <a href="/ar/" hreflang="ar" lang="ar" data-locale="ar">العربية</a></p></article>
+        </details>
+
+        <!-- Directory badges: their image hosts must stay in sync with img-src in vercel.json. -->
+        <nav class="featured-on" aria-label="Shadow Snap을 소개한 제품 디렉터리" data-i18n-aria="aria_featured_on">
+            <span class="featured-on-label" data-i18n="featured_on">소개된 곳</span>
+            <a href="https://nicklaunches.com/products/shadow-snap-subtitle-image-maker/" target="_blank" rel="noopener noreferrer"><img src="https://nicklaunches.com/badges/featured.png" alt="Featured on Nick Launches" width="122" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://twelve.tools" target="_blank" rel="noopener noreferrer"><img src="https://twelve.tools/badge0-dark.svg" alt="Featured on Twelve Tools" width="104" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://fazier.com" target="_blank" rel="noopener noreferrer"><img src="https://fazier.com/api/v1/public/badges/launch_badges.svg?badge_type=featured&amp;theme=neutral" alt="Featured on Fazier" width="119" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://xinquji.com" target="_blank" rel="noopener noreferrer"><img data-xinquji-badge src="https://xinquji.com/badge?theme=dark&amp;lang=en" alt="Featured on Xinquji" width="104" height="28" loading="lazy" decoding="async"></a>
+        </nav>
+
+        <!-- 极简单行工作室页脚 -->
+        <footer class="app-footer">
+            <h2 class="sr-only" data-i18n="footer_heading">공식 제품 및 지원</h2>
+            <a data-portal-link href="https://shadow.wang/ko" target="_blank" rel="noopener noreferrer" title="Shadow Lab 공식 웹사이트 방문" data-i18n-title="title_shadow_lab" class="footer-link-with-logo">
+                <img src="/public/brand_assets/shadow_lab_logo.svg" alt="Shadow Lab" title="Shadow Lab 공식 웹사이트" data-i18n-title="title_shadow_lab_logo" class="footer-logo">
+                <span>Shadow Lab</span>
+            </a>
+            <span class="divider">/</span>
+            <a data-product-link href="https://shadow.wang/ko/products/shadow-snap" target="_blank" rel="noopener noreferrer" title="제품 상세 정보와 기능 소개 보기" data-i18n-title="title_product_page"><span data-i18n="footer_product">제품</span></a>
+            <span class="divider">/</span>
+            <span class="wechat-qr-trigger" title="스캔해서 Ward&#39;s AI Journey를 팔로우하세요" tabindex="0" role="button" aria-label="스캔해서 Ward&#39;s AI Journey를 팔로우하세요" data-i18n-title="title_wechat_qr" data-i18n-aria="title_wechat_qr">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="footer-icon">
+                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.406-.032zm-2.953 3.028c.506 0 .916.418.916.93s-.41.93-.916.93a.923.923 0 0 1-.916-.93c0-.512.41-.93.916-.93zm4.931 0c.506 0 .916.418.916.93s-.41.93-.916.93a.923.923 0 0 1-.916-.93c0-.512.41-.93.916-.93z" />
+                </svg>
+                <span data-i18n="footer_wechat">Ward&#39;s AI Journey</span>
+                <div class="wechat-qr-popup">
+                    <img src="/public/brand_assets/wechat-public-account.png" alt="스캔해서 Ward&#39;s AI Journey를 팔로우하세요" title="스캔해서 Ward&#39;s AI Journey를 팔로우하세요" data-i18n-title="title_wechat_qr" data-i18n-alt="title_wechat_qr">
+                    <p data-i18n="footer_wechat_hint">스캔해서 Ward&#39;s AI Journey를 팔로우하세요</p>
+                </div>
+            </span>
+            <span class="divider">/</span>
+            <a href="https://xhslink.cn/m/4W1NWyRrxv5" target="_blank" rel="noopener noreferrer" title="Xiaohongshu에서 제작자(Ward) 팔로우" data-i18n-title="title_xiaohongshu"><span data-i18n="footer_xiaohongshu">Xiaohongshu</span></a>
+            <span class="divider">/</span>
+            <a href="https://x.com/Gollumgulu" target="_blank" rel="noopener noreferrer" title="X에서 제작자 팔로우 (@Gollumgulu)" data-i18n-title="title_x">𝕏 @Gollumgulu</a>
+            <span class="divider">/</span>
+            <a href="mailto:support@shadow.wang?subject=Shadow%20Snap%20%E6%84%8F%E8%A7%81%E5%8F%8D%E9%A6%88" title="support@shadow.wang로 의견 메일 보내기" data-i18n-title="title_feedback"><span data-i18n="footer_feedback">의견 보내기</span></a>
+        </footer>
+    </div>
+
+    <!-- 移动端保存浮层：系统分享不可用时，提供长按保存与可点击下载两条路径 -->
+    <div id="save-overlay" class="save-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="save-hint">
+        <div class="save-sheet">
+            <p class="save-notice" data-i18n="save_wechat_notice">이미지를 길게 눌러 저장하세요. 실패하면 오른쪽 위의 ··· 를 누르고 “브라우저에서 열기”를 선택하세요.</p>
+            <p class="save-hint" id="save-hint" data-i18n="save_hint">다운로드를 눌러 저장하거나, 아래 이미지를 길게 누른 뒤 “이미지 저장”을 선택하세요</p>
+            <img id="save-preview" class="save-preview" alt="내보낸 자막 이미지 미리보기" data-i18n-alt="save_preview_alt">
+            <div class="save-actions">
+                <a id="save-download" class="save-btn primary" download="shadow_snap.png" data-i18n="btn_download_original">다운로드</a>
+                <button type="button" id="save-close" class="save-btn" data-i18n="btn_close">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示容器 -->
+    <div id="toast-container"></div>
+
+    <script type="module" src="/script.js"></script>
+</body>
+
+</html>

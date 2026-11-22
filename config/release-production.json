@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "repository": "WardLu/shadow-snap",
+  "productionBranch": "production",
+  "vercel": {
+    "teamId": "team_yq83S2zZ3jAfc1JBRuU31M1I",
+    "projectId": "prj_xaFMwRtRpFr9K6tWtcnaDlZax8Ie",
+    "projectName": "shadow-snap",
+    "productionDomains": [
+      "sie.shadow.wang",
+      "snap.shadow.wang"
+    ]
+  },
+  "acceptance": {
+    "path": "/",
+    "bodyIncludes": "<title data-i18n=\"page_title\">影瞬 Shadow Snap | 免费电影感字幕长图与台词拼图生成器</title>",
+    "maxSeconds": 30,
+    "requiredHeaders": [
+      "content-type",
+      "strict-transport-security"
+    ]
+  },
+  "admissionCommands": [
+    [
+      "npm",
+      "ci",
+      "--ignore-scripts"
+    ],
+    [
+      "node",
+      "--test",
+      "tests/release/contracts/*.test.mjs",
+      "tests/release/repository-config.test.mjs"
+    ],
+    [
+      "node",
+      "scripts/validate-static-site.mjs"
+    ]
+  ]
+}

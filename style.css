@@ -1,0 +1,1952 @@
+/* =============================================
+   影瞬 Shadow Snap - Cinema Studio Pro
+   院线级台词拼接工作台 · Obsidian Noir Aesthetic
+   严格遵循 WCAG AA / AAA 无障碍高对比度规范
+   ============================================= */
+
+:root {
+    /* 胶片黑阶与工作台基色 */
+    --studio-bg: #090a0f;
+    --studio-stage: #0c0e14;
+    --studio-surface: #13161f;
+    --studio-card: #1c212d;
+    --studio-elevated: #252b3b;
+    --studio-hover: #31384d;
+
+    /* 品牌与质感高光 */
+    --cyan-glow: #38bdf8;
+    --cyan-subtle: rgba(56, 189, 248, 0.16);
+    --violet-accent: #818cf8;
+    --gold-film: #fbbf24;
+    --emerald-status: #10b981;
+
+    /* 文本色系 (严格遵循 WCAG AA/AAA 对比度要求) */
+    --text-primary: #f8fafc;        /* 对比度 ~18:1 (主标题、关键文本) */
+    --text-secondary: #cbd5e1;      /* 对比度 ~11:1 (正文、选项卡、操作按钮) */
+    --text-muted: #94a3b8;          /* 对比度 ~6.8:1 (辅助说明、副标题，高于 4.5:1 门禁) */
+    --text-subtle: #64748b;
+
+    /* 边框与阴影 */
+    --border-subtle: rgba(255, 255, 255, 0.12);
+    --border-light: rgba(255, 255, 255, 0.2);
+    --border-accent: rgba(56, 189, 248, 0.5);
+    --shadow-stage: 0 24px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --shadow-dropdown: 0 16px 40px rgba(0, 0, 0, 0.7);
+
+    /* 字体 */
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', Roboto, 'Noto Sans SC', sans-serif;
+}
+
+/* 基础重置 */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--studio-bg);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* 禁止移动端横屏字号自动膨胀，保持与排版预设一致的观感 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* User-readable product guide; keep the desktop editor usable while expanded. */
+.product-guide {
+    scroll-margin-top: 64px;
+    flex-shrink: 0;
+    max-height: 42vh;
+    overflow: auto;
+    margin: 8px 20px;
+    padding: 10px 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+.product-guide summary { cursor: pointer; font-weight: 600; }
+.product-guide article { max-width: 860px; margin: 24px auto; }
+.product-guide h2 { margin: 24px 0 12px; font-size: 1.15rem; }
+.product-guide h3 { margin: 16px 0 8px; font-size: 1rem; }
+.product-guide ul, .product-guide ol { padding-left: 24px; }
+.product-guide dd { margin: 0 0 16px; }
+.locale-links a { color: var(--cyan-glow); }
+@media (max-width: 960px) {
+    .product-guide { max-height: none; margin: 12px; }
+}
+/* Directory badges stay on one slim row so the editor keeps its height. */
+.featured-on {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--studio-surface);
+}
+.featured-on::-webkit-scrollbar { display: none; }
+.featured-on-label {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.featured-on a { flex-shrink: 0; display: inline-flex; line-height: 0; opacity: 0.85; transition: opacity 0.15s ease; }
+.featured-on a:hover, .featured-on a:focus-visible { opacity: 1; }
+.featured-on img { height: 28px; width: auto; }
+/* Screen-reader-only headings, not hidden marketing content. */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* 整体容器 */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    /* dvh 跟随移动端地址栏收放，避免 100vh 比可视高度更高导致底部被裁切 */
+    height: 100dvh;
+    width: 100%;
+    background: var(--studio-bg);
+}
+
+/* =============================================
+   1. 院线工作台顶部导航 (Studio Header)
+   ============================================= */
+.studio-header {
+    height: 54px;
+    background: var(--studio-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 20;
+    flex-shrink: 0;
+}
+
+.header-brand-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-brand-wrap h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-logo {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+}
+
+.studio-badge {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cyan-glow);
+    background: var(--cyan-subtle);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.header-tagline {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-weight: 500;
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .header-tagline {
+        display: block;
+    }
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lang-switch select {
+    background: var(--studio-card);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 6px 10px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-switch select:hover,
+.lang-switch select:focus {
+    color: #ffffff;
+    border-color: var(--border-light);
+    background: var(--studio-elevated);
+}
+
+.studio-export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.4);
+    transition: all 0.2s ease;
+}
+
+.studio-export-btn:hover {
+    background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.6);
+    transform: translateY(-1px);
+}
+
+.studio-export-btn:active {
+    transform: translateY(0);
+}
+
+.studio-export-btn .btn-icon {
+    flex-shrink: 0;
+}
+
+/* =============================================
+   2. 主工作区布局 (Workspace Grid 65% : 35%)
+   ============================================= */
+.studio-workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 单栏堆叠布局（平板与手机）：由样式表末尾的移动端适配段统一接管，
+   桌面端保持 65% : 35% 双栏不变。 */
+
+/* =============================================
+   3. 左侧：胶片画布舞台 (Cinema Stage)
+   ============================================= */
+.cinema-stage-section {
+    background: var(--studio-stage);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    min-height: 0;
+    border-right: 1px solid var(--border-subtle);
+}
+
+.stage-topbar {
+    height: 40px;
+    flex-shrink: 0;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(12, 14, 20, 0.85);
+    font-size: 12px;
+    font-family: var(--font-mono);
+}
+
+.stage-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--emerald-status);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--emerald-status);
+    animation: statusPulse 2.5s infinite;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+.status-text {
+    color: #f1f5f9;
+    font-weight: 500;
+}
+
+.aspect-indicator {
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* 画布视口区域 (占据除顶部与底部操作坞外的全部空间，min-height: 0 避免内容撑大视口) */
+.canvas-viewport {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: auto;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* 剧照独立取景框 (Cinema Viewfinder Drop Zone) - 绝不受任何 dummy canvas 裁剪 */
+.drop-zone {
+    width: 90%;
+    max-width: 620px;
+    aspect-ratio: 16 / 9;
+    max-height: 380px;
+    min-height: 250px;
+    background: rgba(19, 23, 33, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    padding: 28px 20px;
+    position: relative;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.5);
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: var(--cyan-glow);
+    background: rgba(24, 30, 45, 0.9);
+    box-shadow: 0 20px 50px rgba(56, 189, 248, 0.18);
+    transform: translateY(-2px);
+}
+
+.drop-zone.hidden {
+    display: none !important;
+}
+
+.drop-aspect-frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* 胶片取景角标 (Film Viewfinder Crop Marks) */
+.frame-corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: var(--cyan-glow);
+    opacity: 0.65;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.drop-zone:hover .frame-corner {
+    opacity: 1;
+}
+
+.frame-corner.top-left {
+    top: -10px;
+    left: -10px;
+    border-top: 2px solid var(--cyan-glow);
+    border-left: 2px solid var(--cyan-glow);
+}
+
+.frame-corner.top-right {
+    top: -10px;
+    right: -10px;
+    border-top: 2px solid var(--cyan-glow);
+    border-right: 2px solid var(--cyan-glow);
+}
+
+.frame-corner.bottom-left {
+    bottom: -10px;
+    left: -10px;
+    border-bottom: 2px solid var(--cyan-glow);
+    border-left: 2px solid var(--cyan-glow);
+}
+
+.frame-corner.bottom-right {
+    bottom: -10px;
+    right: -10px;
+    border-bottom: 2px solid var(--cyan-glow);
+    border-right: 2px solid var(--cyan-glow);
+}
+
+.drop-icon-box {
+    width: 68px;
+    height: 68px;
+    border-radius: 18px;
+    background: rgba(32, 38, 54, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cyan-glow);
+    margin-bottom: 14px;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.drop-zone:hover .drop-icon-box {
+    transform: scale(1.08);
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.15);
+}
+
+.drop-main-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+}
+
+.drop-sub-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.drop-action-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.drop-zone:hover .drop-action-pill {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--cyan-glow);
+    color: #ffffff;
+}
+
+/* 载入画面后的画布包装器 */
+.canvas-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.canvas-wrapper.hidden {
+    display: none !important;
+}
+
+/* 默认：自适应缩放模式 (Fit Mode)
+   保证无论图片长宽比如何、有多少行台词，整个画面与底部的所有台词都 100% 完整收纳在视口内部，绝不被裁切、绝不遮挡 */
+.canvas-viewport:not(.mode-actual) {
+    overflow: hidden;
+}
+
+.canvas-viewport:not(.mode-actual) .canvas-wrapper {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.canvas-viewport:not(.mode-actual) #subtitle-canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: var(--shadow-stage);
+}
+
+/* 1:1 原画查看模式 (Actual Mode)
+   按原始像素点对点显示，用户可以在视口内自由平滑滚动查看超清细节 */
+.canvas-viewport.mode-actual {
+    overflow: auto;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.canvas-viewport.mode-actual .canvas-wrapper {
+    width: max-content;
+    height: max-content;
+    min-width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 36px;
+}
+
+.canvas-viewport.mode-actual #subtitle-canvas {
+    display: block;
+    max-width: none;
+    max-height: none;
+    width: auto;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: var(--shadow-stage);
+}
+
+/* 底部操作坞：作为 Stage Section 底部独立行，与画板视口流式并列，绝不悬浮重叠遮挡任何内容 */
+.stage-dock-bar {
+    height: 48px;
+    flex-shrink: 0;
+    background: rgba(12, 14, 20, 0.95);
+    border-top: 1px solid var(--border-subtle);
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    z-index: 5;
+    position: relative;
+}
+
+.dock-left,
+.dock-center,
+.dock-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.dock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 20px;
+    border: 1px solid var(--border-subtle);
+    background: var(--studio-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    /* 不放行换行：空间不足时宁可溢出，也不能把标签压成竖排单字 */
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.dock-btn:hover {
+    color: #ffffff;
+    border-color: var(--border-light);
+    background: var(--studio-elevated);
+}
+
+.dock-btn.upload-trigger {
+    color: var(--cyan-glow);
+    background: var(--cyan-subtle);
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
+.dock-btn.upload-trigger:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--cyan-glow);
+    color: #ffffff;
+}
+
+.dock-btn.danger-trigger:hover {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* 视口模式切换胶囊 (Fit vs 1:1 Toggle) */
+.view-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.view-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.view-toggle-btn:hover {
+    color: #ffffff;
+}
+
+.view-toggle-btn.active {
+    color: #ffffff;
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.dock-badge {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    padding-left: 4px;
+    border-left: 1px solid var(--border-subtle);
+}
+
+/* 中等宽度下操作坞空间紧张：收起纯装饰的引擎标识，避免按钮挤压变形 */
+@media (max-width: 1200px) {
+    .dock-badge {
+        display: none;
+    }
+}
+
+/* =============================================
+   4. 右侧：检查器控制面板 (Inspector Sidebar)
+   ============================================= */
+.control-panel {
+    background: var(--studio-surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* 分段选项卡 (Segmented Tabs) - 高对比度清晰排版 */
+.inspector-tabs {
+    margin: 14px 16px 8px;
+    background: #0b0c11;
+    border: 1px solid var(--border-subtle);
+    padding: 4px;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary); /* #cbd5e1 高对比度清晰可见 */
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-align: center;
+}
+
+.tab-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    background: var(--studio-elevated);
+    color: #ffffff;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 选项卡内容容器 */
+.inspector-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px 24px;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+    animation: paneFadeIn 0.2s ease-out;
+}
+
+@keyframes paneFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.pane-section {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* 经典台词灵感标签 */
+.quote-tags-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tags-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.quote-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.quote-chip {
+    background: var(--studio-card);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.quote-chip:hover {
+    color: #ffffff;
+    border-color: var(--cyan-glow);
+    background: var(--studio-elevated);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+/* 台词脚本编辑器 */
+.script-editor-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.editor-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.editor-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+#subtitle-text {
+    width: 100%;
+    height: 220px;
+    background: #0a0b10;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#subtitle-text:focus {
+    border-color: var(--cyan-glow);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+/* 预设方案选择网格 (Presets Grid) */
+.preset-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.section-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.preset-card {
+    background: var(--studio-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.preset-card:hover {
+    border-color: var(--border-light);
+    background: var(--studio-elevated);
+}
+
+.preset-card.active {
+    border-color: var(--cyan-glow);
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.preset-swatch {
+    font-size: 14px;
+    font-weight: 700;
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    text-align: center;
+    border-radius: 6px;
+    margin-bottom: 2px;
+}
+
+.swatch-nolan { background: #000000; color: #ffffff; border: 1px solid #333333; }
+.swatch-wong { background: #1a0f00; color: #fbbf24; border: 1px solid #78350f; }
+.swatch-tokyo { background: #082f49; color: #a5f3fc; border: 1px solid #0369a1; }
+.swatch-french { background: #000000; color: #ffffff; border: 1px solid #ffffff; }
+
+.preset-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.preset-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+/* 表单字段通用样式 */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field label, .color-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.studio-select, .studio-input {
+    width: 100%;
+    background: var(--studio-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.studio-select:focus, .studio-input:focus {
+    border-color: var(--cyan-glow);
+    background: var(--studio-elevated);
+}
+
+/* 滑块控件 */
+.slider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.slider-value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--cyan-glow);
+    font-weight: 600;
+}
+
+.studio-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: #252c3d;
+    outline: none;
+}
+
+.studio-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan-glow);
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+    transition: transform 0.15s ease;
+}
+
+.studio-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* 双颜色选择器 */
+.colors-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.color-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.color-picker-wrap {
+    height: 36px;
+    background: var(--studio-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.color-picker-wrap input[type="color"] {
+    -webkit-appearance: none;
+    border: none;
+    width: 100%;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+}
+
+.color-picker-wrap input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-picker-wrap input[type="color"]::-webkit-color-swatch {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+/* 水印开关与禁用控制 */
+.switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.switch-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.studio-switch {
+    width: 36px;
+    height: 20px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #252c3d;
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    outline: none;
+    transition: background 0.2s ease;
+}
+
+.studio-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+}
+
+.studio-switch:checked {
+    background: var(--cyan-glow);
+}
+
+.studio-switch:checked::after {
+    transform: translateX(16px);
+}
+
+.wm-controls-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: opacity 0.2s ease;
+}
+
+.wm-controls-container.disabled-group {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* =============================================
+   5. 单行工作室页脚 (App Footer)
+   ============================================= */
+.app-footer {
+    height: 40px;
+    background: var(--studio-surface);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 0 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+.app-footer a, .app-footer span {
+    color: var(--text-secondary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    transition: color 0.15s ease;
+}
+
+.app-footer a:hover {
+    color: var(--cyan-glow);
+}
+
+.footer-logo {
+    width: 15px;
+    height: 15px;
+    vertical-align: middle;
+}
+
+.divider {
+    color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.wechat-qr-trigger {
+    position: relative;
+    cursor: pointer;
+}
+
+.wechat-qr-popup {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #11141c;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: var(--shadow-dropdown);
+    text-align: center;
+    z-index: 100;
+    width: 160px;
+}
+
+.wechat-qr-popup img {
+    width: 136px;
+    height: 136px;
+    display: block;
+    margin: 0 auto 6px;
+    border-radius: 4px;
+}
+
+.wechat-qr-popup p {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* 触屏无 hover：同时支持键盘聚焦，保证二维码在移动端也能唤出 */
+.wechat-qr-trigger:hover .wechat-qr-popup,
+.wechat-qr-trigger:focus-within .wechat-qr-popup {
+    display: block;
+}
+
+.wechat-qr-trigger:focus-visible {
+    outline: 2px solid var(--cyan-glow);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+/* =============================================
+   6. 吐司消息通知 (Toast)
+   ============================================= */
+#toast-container {
+    position: fixed;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.toast {
+    background: rgba(22, 27, 39, 0.95);
+    border: 1px solid var(--border-light);
+    backdrop-filter: blur(12px);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 18px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    animation: toastFade 3s ease forwards;
+}
+
+@keyframes toastFade {
+    0% { opacity: 0; transform: translateY(-8px); }
+    10% { opacity: 1; transform: translateY(0); }
+    85% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-8px); }
+}
+
+/* =============================================
+   7. 触屏与移动端适配 (Touch & Mobile Adaptation)
+   ============================================= */
+/* 7.1 触屏设备：放大真实可点区域与滑块拇指
+   （按指针类型判定，iPad 等大屏触控设备同样受益） */
+@media (pointer: coarse) {
+    .tab-btn {
+        padding: 12px 6px;
+        touch-action: manipulation;
+    }
+
+    .quote-chip {
+        padding: 10px 13px;
+        font-size: 13px;
+        touch-action: manipulation;
+    }
+
+    .dock-btn,
+    .view-toggle-btn,
+    .preset-card,
+    .studio-export-btn,
+    .studio-switch {
+        touch-action: manipulation;
+    }
+
+    .dock-btn {
+        min-height: 40px;
+    }
+
+    .view-toggle-btn {
+        min-height: 36px;
+    }
+
+    /* 原控件盒仅 4px 高、拇指 14px，手指难以命中；
+       故把控件盒撑到 28px，轨道与拇指改由伪元素绘制 */
+    .studio-slider {
+        height: 28px;
+        background: transparent;
+    }
+
+    .studio-slider::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 3px;
+        background: #252c3d;
+    }
+
+    .studio-slider::-webkit-slider-thumb {
+        width: 22px;
+        height: 22px;
+        margin-top: -8px;
+    }
+
+    .studio-slider::-moz-range-track {
+        height: 6px;
+        border-radius: 3px;
+        background: #252c3d;
+    }
+
+    .studio-slider::-moz-range-thumb {
+        width: 22px;
+        height: 22px;
+        border: none;
+        border-radius: 50%;
+        background: var(--cyan-glow);
+    }
+
+    .studio-switch {
+        width: 50px;
+        height: 30px;
+        border-radius: 15px;
+    }
+
+    .studio-switch::after {
+        width: 26px;
+        height: 26px;
+    }
+
+    .studio-switch:checked::after {
+        transform: translateX(20px);
+    }
+
+    .color-picker-wrap {
+        height: 44px;
+    }
+
+    .color-picker-wrap input[type="color"] {
+        height: 32px;
+    }
+}
+
+/* 7.2 平板与手机：单栏堆叠 + 文档流滚动
+   画布预览吸附在顶部充当常驻取景窗，控制面板在其下方流动，
+   调参时无需来回滚动即可看到实时效果。 */
+@media (max-width: 960px) {
+    :root {
+        --header-h: 52px;
+    }
+
+    /* 把滚动权交还文档流：固定 100vh 在移动端会被地址栏裁切 */
+    html, body {
+        height: auto;
+        min-height: 100%;
+        overflow: visible;
+        overscroll-behavior-y: contain;
+    }
+
+    .app-container {
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        /* clip 不产生滚动容器，因此不会破坏内部 sticky 预览 */
+        overflow-x: clip;
+    }
+
+    /* --- 顶部导航：吸顶常驻，导出按钮随时可点 --- */
+    .studio-header {
+        position: sticky;
+        top: 0;
+        height: auto;
+        min-height: var(--header-h);
+        padding: env(safe-area-inset-top, 0px) 12px 0;
+        gap: 10px;
+    }
+
+    .header-brand-wrap {
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .header-brand-wrap h1 {
+        font-size: 14px;
+        gap: 8px;
+        white-space: nowrap;
+    }
+
+    .header-logo {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .studio-badge {
+        flex-shrink: 0;
+        padding: 2px 7px;
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+    }
+
+    .header-actions {
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .lang-switch select {
+        min-height: 38px;
+        padding: 6px 8px;
+    }
+
+    .studio-export-btn {
+        min-height: 38px;
+        padding: 7px 13px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    /* --- 主工作区：单栏堆叠，取消内部滚动条 --- */
+    .studio-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: none;
+        height: auto;
+        overflow: visible;
+    }
+
+    /* --- 画布舞台：吸附顶部 --- */
+    .cinema-stage-section {
+        position: sticky;
+        top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+        z-index: 6;
+        height: min(46vh, 360px);
+        height: min(46dvh, 360px);
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+        box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.95);
+    }
+
+    /* 编辑台词时收起预览，把高度让给编辑器与软键盘 */
+    .studio-workspace.is-editing .cinema-stage-section {
+        position: static;
+        height: 0;
+        border-bottom: none;
+        box-shadow: none;
+    }
+
+    .stage-topbar {
+        height: 36px;
+        padding: 0 12px;
+        gap: 10px;
+        font-size: 11px;
+    }
+
+    .stage-status {
+        min-width: 0;
+        gap: 6px;
+    }
+
+    .status-dot {
+        flex-shrink: 0;
+    }
+
+    .status-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .aspect-indicator {
+        flex-shrink: 0;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+    }
+
+    .canvas-viewport {
+        padding: 10px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 取景框撑满舞台，触屏命中面积最大化 */
+    .drop-zone {
+        align-self: stretch;
+        width: auto;
+        max-width: none;
+        height: auto;
+        max-height: none;
+        min-height: 0;
+        aspect-ratio: auto;
+        padding: 16px;
+        border-radius: 10px;
+    }
+
+    .drop-icon-box {
+        width: 52px;
+        height: 52px;
+        margin-bottom: 10px;
+    }
+
+    .drop-icon-box svg {
+        width: 32px;
+        height: 32px;
+    }
+
+    .drop-main-text {
+        font-size: 15px;
+    }
+
+    .drop-sub-text {
+        font-size: 12px;
+        margin-bottom: 12px;
+    }
+
+    .drop-action-pill {
+        padding: 8px 16px;
+    }
+
+    /* --- 底部操作坞：一律不换行，超窄屏改为横向滑动而非挤压 --- */
+    .stage-dock-bar {
+        height: auto;
+        min-height: 46px;
+        padding: 6px 10px;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .stage-dock-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .dock-left,
+    .dock-center,
+    .dock-right {
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .dock-btn,
+    .view-toggle-btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .dock-btn {
+        padding: 7px 12px;
+    }
+
+    .view-toggle-btn {
+        padding: 6px 10px;
+    }
+
+    .dock-badge {
+        display: none;
+    }
+
+    /* --- 检查器面板：自然高度，交给整页滚动 --- */
+    .control-panel {
+        overflow: visible;
+    }
+
+    .inspector-tabs {
+        margin: 12px 12px 6px;
+    }
+
+    .tab-btn {
+        padding: 11px 6px;
+    }
+
+    .inspector-content {
+        overflow: visible;
+        padding: 12px 12px 18px;
+    }
+
+    /* 输入控件字号提到 16px：规避 iOS 聚焦时自动放大，同时更易读 */
+    #subtitle-text {
+        font-size: 16px;
+        line-height: 1.65;
+    }
+
+    .studio-select,
+    .studio-input {
+        font-size: 16px;
+    }
+
+    /* --- 页脚：允许折行，不再被固定高度裁切 --- */
+    .app-footer {
+        height: auto;
+        min-height: 40px;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+        line-height: 1.4;
+    }
+
+    .app-footer a,
+    .app-footer span {
+        padding: 5px 0;
+    }
+
+    /* 页面在移动端会折行，二维码弹层改为视口居中，避免贴边被裁 */
+    .wechat-qr-popup {
+        position: fixed;
+        left: 50%;
+        right: auto;
+        bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+    }
+
+    /* --- Toast：跟随吸顶高度，限制宽度并允许折行 --- */
+    #toast-container {
+        top: calc(var(--header-h) + env(safe-area-inset-top, 0px) + 10px);
+        max-width: calc(100% - 32px);
+    }
+
+    .toast {
+        text-align: center;
+    }
+}
+
+/* 7.3 手机：收敛装饰性元素，把宽度让给可操作项 */
+@media (max-width: 560px) {
+    .studio-badge,
+    .aspect-indicator,
+    .editor-hint {
+        display: none;
+    }
+
+    /* 操作坞：收紧尺寸，一行放不下时折行居中，
+       绝不挤压成竖排文字（原缺陷），也不再横向滚动露出半截按钮 */
+    .stage-dock-bar {
+        flex-wrap: wrap;
+        justify-content: center;
+        overflow: visible;
+    }
+
+    .dock-btn {
+        gap: 4px;
+        padding: 5px 9px;
+        font-size: 11px;
+    }
+
+    .view-toggle-btn {
+        gap: 3px;
+        padding: 5px 7px;
+    }
+
+    /* 手机上让标签独当一面：图标只保留在宽度充裕的桌面与平板 */
+    .studio-export-btn .btn-icon,
+    .dock-btn > svg {
+        display: none;
+    }
+
+    .drop-main-text {
+        line-height: 1.4;
+    }
+
+    .drop-icon-box {
+        width: 44px;
+        height: 44px;
+        margin-bottom: 8px;
+        border-radius: 14px;
+    }
+
+    .drop-icon-box svg {
+        width: 26px;
+        height: 26px;
+    }
+
+    .drop-action-pill {
+        padding: 7px 14px;
+    }
+
+    .preset-card {
+        padding: 9px;
+    }
+
+    .quote-chips {
+        gap: 8px;
+    }
+
+    #subtitle-text {
+        height: 200px;
+    }
+}
+
+/* 7.3.1 小屏手机竖屏：舞台高度有限（操作坞还会折成两行），
+   取景框让出图标与格式提示，保证主文案与按钮完整可见 */
+@media (max-width: 560px) and (orientation: portrait) and (max-height: 620px) {
+    .drop-icon-box,
+    .drop-sub-text {
+        display: none;
+    }
+
+    .canvas-viewport {
+        padding: 8px;
+    }
+}
+
+/* 7.3.2 窄屏顶栏：收紧品牌与操作项尺寸，让单行导航在 360px 级别仍可完整放下 */
+@media (max-width: 400px) {
+    .header-brand-wrap h1 {
+        font-size: 13px;
+        gap: 6px;
+    }
+
+    .header-logo {
+        width: 18px;
+        height: 18px;
+    }
+
+    .lang-switch select {
+        min-height: 34px;
+        padding: 5px 7px;
+        font-size: 11px;
+    }
+
+    .studio-export-btn {
+        min-height: 34px;
+        padding: 6px 11px;
+        font-size: 11px;
+    }
+
+    .stage-topbar {
+        padding: 0 10px;
+    }
+
+    .drop-main-text {
+        font-size: 14px;
+    }
+
+    .drop-action-pill {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+}
+
+/* 7.3.3 超窄屏（320px 级）：顶栏改两行（品牌独占一行、操作项右对齐），
+   避免品牌文字被压缩后压到语言选择器上产生重叠 */
+@media (max-width: 359px) {
+    :root {
+        --header-h: 80px;
+    }
+
+    /* 固定两行高度，与 --header-h 精确对齐，保证画布舞台吸附位置严丝合缝 */
+    .studio-header {
+        height: calc(80px + env(safe-area-inset-top, 0px));
+        padding: env(safe-area-inset-top, 0px) 12px 0;
+        align-content: center;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .header-brand-wrap {
+        flex-basis: 100%;
+    }
+
+    .header-actions {
+        margin-left: auto;
+    }
+}
+
+/* 7.4 手机横置（矮视口）：恢复左右双栏，让宽画幅占满主视野 */
+@media (max-width: 960px) and (orientation: landscape) and (max-height: 560px) {
+    html, body {
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .app-container {
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+    }
+
+    .studio-header {
+        position: static;
+        min-height: 44px;
+    }
+
+    .studio-workspace {
+        grid-template-columns: minmax(0, 1fr) 300px;
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+    }
+
+    .cinema-stage-section {
+        position: static;
+        height: auto;
+        min-height: 0;
+        border-right: 1px solid var(--border-subtle);
+        border-bottom: none;
+        box-shadow: none;
+    }
+
+    .control-panel {
+        overflow: hidden;
+    }
+
+    .inspector-content {
+        overflow-y: auto;
+    }
+
+    .app-footer,
+    .featured-on {
+        display: none;
+    }
+}
+
+/* =============================================
+   8. 移动端保存浮层 (Save Sheet)
+   系统分享不可用时展示导出结果，长按图片即可另存。
+   注意：不设置 user-select / touch-action 等会屏蔽系统长按菜单的属性。
+   ============================================= */
+.save-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    overflow-y: auto;
+    background: rgba(6, 7, 11, 0.94);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.save-overlay.hidden {
+    display: none !important;
+}
+
+.save-sheet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+    padding: 14px;
+    background: var(--studio-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-dropdown);
+}
+
+.save-hint {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+/* 微信内置浏览器：blob 图片长按保存会被内核拒绝，程序化下载也会被拦，
+   因此改为展示「在浏览器打开」指引，并隐藏注定失败的下载按钮。 */
+.save-notice {
+    display: none;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.6;
+    color: var(--gold-film);
+    text-align: center;
+}
+
+.save-overlay.is-wechat .save-notice {
+    display: block;
+}
+
+.save-overlay.is-wechat .save-hint,
+.save-overlay.is-wechat #save-download {
+    display: none;
+}
+
+.save-preview {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 62vh;
+    max-height: 62dvh;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #000;
+    -webkit-touch-callout: default;
+    user-select: auto;
+    -webkit-user-select: auto;
+}
+
+.save-actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.save-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--studio-card);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.save-btn.primary {
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    border-color: transparent;
+    color: #ffffff;
+}
+
+/* 404 page (static, shared with the app stylesheet). The studio shell locks html and body to the viewport; this page scrolls. */
+html.not-found-page,
+html.not-found-page body {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+}
+
+.not-found {
+    box-sizing: border-box;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 96px 24px 64px;
+    text-align: center;
+}
+
+.not-found-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 40px;
+    color: var(--text-primary);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.not-found h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    line-height: 1.3;
+}
+
+.not-found-desc {
+    margin: 0 0 28px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+.not-found-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin: 0 0 40px;
+}
+
+.not-found-home,
+.not-found-product {
+    padding: 10px 18px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.not-found-home {
+    background: var(--studio-elevated);
+}
+
+.not-found-home:hover,
+.not-found-product:hover,
+.not-found-brand:hover,
+.not-found-locales a:hover {
+    color: #ffffff;
+    border-color: var(--border-light);
+}
+
+.not-found-locales {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 14px;
+    font-size: 13px;
+}
+
+.not-found-locales a {
+    color: var(--text-secondary);
+    text-decoration: none;
+}

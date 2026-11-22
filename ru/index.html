@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ru" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- 首页按浏览器语言跳转；同步经典脚本，放在样式表之前，避免先闪一下默认语言 -->
+    <script src="/locale-redirect.js"></script>
+    <!-- 移动端浏览器界面与页面同色，避免状态栏/地址栏跳色 -->
+    <meta name="theme-color" content="#090a0f">
+    <meta name="color-scheme" content="dark">
+    <title data-i18n="page_title">Shadow Snap | Бесплатный генератор кадров с киношными субтитрами</title>
+    <meta name="description" content="Создавайте киношные изображения с субтитрами из одного кадра фильма и нескольких реплик. Настраивайте шрифты, цвета и водяные знаки, затем экспортируйте изображение локально в браузере.">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://snap.shadow.wang/ru/">
+    <link rel="alternate" hreflang="zh" href="https://snap.shadow.wang/">
+    <link rel="alternate" hreflang="en" href="https://snap.shadow.wang/en/">
+    <link rel="alternate" hreflang="zh-Hant" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-TW" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-HK" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="zh-MO" href="https://snap.shadow.wang/zh-hant/">
+    <link rel="alternate" hreflang="ja" href="https://snap.shadow.wang/ja/">
+    <link rel="alternate" hreflang="ko" href="https://snap.shadow.wang/ko/">
+    <link rel="alternate" hreflang="es" href="https://snap.shadow.wang/es/">
+    <link rel="alternate" hreflang="pt" href="https://snap.shadow.wang/pt/">
+    <link rel="alternate" hreflang="fr" href="https://snap.shadow.wang/fr/">
+    <link rel="alternate" hreflang="de" href="https://snap.shadow.wang/de/">
+    <link rel="alternate" hreflang="ru" href="https://snap.shadow.wang/ru/">
+    <link rel="alternate" hreflang="id" href="https://snap.shadow.wang/id/">
+    <link rel="alternate" hreflang="ar" href="https://snap.shadow.wang/ar/">
+    <link rel="alternate" hreflang="x-default" href="https://snap.shadow.wang/en/">
+    <meta name="application-name" content="Shadow Snap">
+    <meta name="author" content="Ward Lu">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Shadow Snap">
+    <meta property="og:title" content="Shadow Snap | Бесплатный генератор кадров с киношными субтитрами">
+    <meta property="og:description" content="Создавайте киношные изображения с субтитрами из одного кадра фильма и нескольких реплик. Настраивайте шрифты, цвета и водяные знаки, затем экспортируйте изображение локально в браузере.">
+    <meta property="og:url" content="https://snap.shadow.wang/ru/">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="zh_TW">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta property="og:locale:alternate" content="ko_KR">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="pt_BR">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:locale:alternate" content="id_ID">
+    <meta property="og:locale:alternate" content="ar_AR">
+    <meta property="og:image" content="https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Shadow Snap">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@Gollumgulu">
+    <meta name="twitter:creator" content="@Gollumgulu">
+    <meta name="twitter:title" content="Shadow Snap | Бесплатный генератор кадров с киношными субтитрами">
+    <meta name="twitter:description" content="Создавайте киношные изображения с субтитрами из одного кадра фильма и нескольких реплик. Настраивайте шрифты, цвета и водяные знаки, затем экспортируйте изображение локально в браузере.">
+    <meta name="twitter:image" content="https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png">
+    <meta name="twitter:image:alt" content="Shadow Snap">
+    <!-- 引入浏览器小图标 -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/public/brand_assets/shadow_snap.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/brand_assets/icon-32.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="/public/brand_assets/icon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/brand_assets/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/brand_assets/icon-192.png">
+    <!-- 同域自托管字体（多语言 + 特色字体），来源与许可见 public/fonts/fonts.lock.json -->
+    <link rel="stylesheet" href="/public/fonts/fonts.css">
+    <link rel="stylesheet" href="/public/fonts-subset/fonts-subset.css">
+    <link rel="stylesheet" href="/style.css">
+    <!-- Vercel Web Analytics（自托管路由：同源加载与上报，无需放宽 CSP） -->
+    <script defer src="/_vercel/insights/script.js" data-sdkn="@vercel/analytics" data-sdkv="1.6.1"></script>
+    <!-- 核心 WebApplication 结构化数据 (Strict Schema for Release Controller) -->
+    <script id="shadow-snap-structured-data" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "@id": "https://snap.shadow.wang/#application",
+  "name": "Shadow Snap",
+  "alternateName": "影瞬",
+  "url": "https://snap.shadow.wang/ru/",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web, iOS, Android, macOS, Windows",
+  "browserRequirements": "Requires modern web browser with HTML5 Canvas support",
+  "softwareVersion": "1.5.3",
+  "isAccessibleForFree": true,
+  "description": "Создавайте киношные изображения с субтитрами из одного кадра фильма и нескольких реплик. Настраивайте шрифты, цвета и водяные знаки, затем экспортируйте изображение локально в браузере.",
+  "image": "https://snap.shadow.wang/public/brand_assets/og_shadow_snap_en.png",
+  "featureList": [
+    "Первый кадр сохраняется целиком, а следующие фрагменты субтитров склеиваются автоматически.",
+    "Изображения обрабатываются и экспортируются локально с помощью HTML5 Canvas, фото не загружаются на сервер.",
+    "Доступны шрифты для китайского, латиницы, тайского, вьетнамского и арабского языков. Можно настраивать размер шрифта, цвета, обводку, безопасные поля и водяные знаки.",
+    "Использование бесплатное, без аккаунта и установки. За раз импортируется одно изображение."
+  ],
+  "offers": {
+    "@type": "Offer",
+    "name": "Free",
+    "price": "0",
+    "priceCurrency": "USD",
+    "url": "https://snap.shadow.wang/ru/"
+  },
+  "author": {
+    "@id": "https://wardlu.com/#ward"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "@id": "https://shadow.wang/#organization",
+    "name": "Shadow Lab",
+    "url": "https://shadow.wang"
+  },
+  "inLanguage": "ru"
+}
+    </script>
+    <!-- 全域 GEO 与富媒体图谱扩展 (Rich Knowledge Graph) -->
+    <script id="shadow-snap-geo-data" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://snap.shadow.wang/#website",
+      "url": "https://snap.shadow.wang/",
+      "name": "Shadow Snap",
+      "alternateName": "影瞬",
+      "description": "Создавайте киношные изображения с субтитрами из одного кадра фильма и нескольких реплик. Настраивайте шрифты, цвета и водяные знаки, затем экспортируйте изображение локально в браузере.",
+      "publisher": {
+        "@id": "https://shadow.wang/#organization"
+      },
+      "inLanguage": [
+        "zh-CN",
+        "en-US"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://shadow.wang/#organization",
+      "name": "Shadow Lab",
+      "url": "https://shadow.wang",
+      "logo": "https://shadow.wang/brand_assets/shadow_lab_logo.png",
+      "founder": {
+        "@type": "Person",
+        "@id": "https://wardlu.com/#ward",
+        "name": "Ward Lu",
+        "url": "https://wardlu.com"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "support@shadow.wang",
+        "url": "https://shadow.wang"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://wardlu.com/#ward",
+      "name": "Ward Lu",
+      "jobTitle": "Creator of Shadow Lab",
+      "url": "https://wardlu.com",
+      "sameAs": [
+        "https://x.com/Gollumgulu",
+        "https://github.com/WardLu",
+        "https://xhslink.cn/m/4W1NWyRrxv5",
+        "https://v.douyin.com/1y06PMohfoE/"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://snap.shadow.wang/ru/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Что такое Shadow Snap?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Shadow Snap — бесплатный инструмент для создания киношных изображений с субтитрами. Он объединяет один кадр и несколько реплик. Аккаунт и установка не требуются."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как создать изображение с репликами из фильма?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Импортируйте одно изображение, введите реплики на отдельных строках, настройте шрифт и высоту фрагмента, затем экспортируйте результат. Первый кадр сохраняется целиком, а последующие реплики используют фрагменты нижней области."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Мои фотографии загружаются на сервер?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Нет. Обработка и экспорт изображений выполняются в локальной памяти браузера. Сайт загружает шрифты и использует веб-аналитику, но ни то ни другое не требует загрузки ваших изображений."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как сохранить изображение на телефоне?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "После экспорта сохраните изображение через системное меню «Поделиться». Браузеры без поддержки отправки откроют окно сохранения: нажмите «Скачать» или нажмите на изображение и удерживайте его. Если сохранение внутри WeChat не работает, откройте страницу в системном браузере."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Какие языки и шрифты поддерживаются?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Интерфейс доступен на 12 языках: упрощённом китайском, традиционном китайском, английском, японском, корейском, испанском, португальском, французском, немецком, русском, индонезийском и арабском. Варианты шрифтов включают китайскую, латинскую, тайскую, вьетнамскую и арабскую письменности. Отображение зависит от браузера и доступности шрифтов."
+          }
+        }
+      ],
+      "inLanguage": "ru"
+    }
+  ]
+}
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 院线工作室顶部导航 -->
+        <header class="studio-header">
+            <div class="header-brand-wrap">
+                <h1 data-i18n="header_title"><img src='/public/brand_assets/shadow_snap.svg' alt='Logo' title='Логотип Shadow Snap' class='header-logo'> Shadow Snap</h1>
+                <span class="studio-badge">CINEMA STUDIO</span>
+            </div>
+
+            <div class="header-tagline" data-i18n="header_desc">Студия длинных кадров с диалогами · Профессиональный редактор субтитров</div>
+
+            <div class="header-actions">
+                <div class="lang-switch">
+                    <select id="lang-select" class="lang-select" aria-label="Выбрать язык интерфейса" data-i18n-aria="title_lang">
+                        <option value="zh">简体中文</option>
+                        <option value="en">English</option>
+                        <option value="zh-hant">繁體中文</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko">한국어</option>
+                        <option value="es">Español</option>
+                        <option value="pt">Português</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="ru" selected>Русский</option>
+                        <option value="id">Bahasa Indonesia</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                </div>
+                <button id="download-btn" class="studio-export-btn" data-i18n-title="title_export" title="Экспорт сверхчёткого длинного изображения">
+                    <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span class="btn-text" data-i18n="btn_save_img">Экспорт изображения</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主体：65% 画布预览区 + 35% 检查器面板 -->
+        <main class="studio-workspace">
+            <!-- 胶片画布区 (65%) -->
+            <section class="cinema-stage-section">
+                <h2 class="sr-only" data-i18n="stage_heading">Предпросмотр холста с киношными субтитрами</h2>
+                <div class="stage-topbar">
+                    <div class="stage-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text" id="stage-status-text" data-i18n="stage_ready">Холст готов · Ожидание кадра</span>
+                    </div>
+                    <div class="aspect-indicator">2.39:1 CINEMASCOPE READY</div>
+                </div>
+
+                <div class="canvas-viewport" id="canvas-viewport">
+                    <!-- 初始未载入状态：独立的高清电影取景框，绝不被 dummy canvas 裁切遮挡 -->
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-aspect-frame">
+                            <span class="frame-corner top-left"></span>
+                            <span class="frame-corner top-right"></span>
+                            <span class="frame-corner bottom-left"></span>
+                            <span class="frame-corner bottom-right"></span>
+                            <div class="drop-icon-box">
+                                <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            </div>
+                            <div class="drop-main-text" data-i18n="drop_zone_text">Перетащите кадр из фильма сюда или нажмите, чтобы импортировать</div>
+                            <div class="drop-sub-text" data-i18n="drop_sub_text">Кадры JPG / PNG / WebP · обрабатываются локально в браузере</div>
+                            <div class="drop-action-pill">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                <span data-i18n="btn_select_img">Заменить кадр</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 载入剧照后的高清画板 -->
+                    <div class="canvas-wrapper hidden" id="canvas-wrapper">
+                        <canvas id="subtitle-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- 底部工作台状态与控制坞（与画板视口流式分离，绝不重叠遮挡任何台词与画面） -->
+                <div class="stage-dock-bar">
+                    <div class="dock-left">
+                        <label class="dock-btn upload-trigger" for="image-input" title="Выбрать локальный кадр" data-i18n-title="title_upload">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <span data-i18n="btn_select_img">Заменить кадр</span>
+                        </label>
+                        <input type="file" id="image-input" accept="image/png, image/jpeg, image/webp, image/jpg, .png, .jpg, .jpeg, .webp, image/*" class="sr-only">
+                        <button id="reset-btn" class="dock-btn danger-trigger" title="Очистить текущий кадр и реплики" data-i18n-title="title_clear">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            <span data-i18n="btn_delete_img">Очистить холст</span>
+                        </button>
+                    </div>
+                    <div class="dock-center">
+                        <div class="view-mode-toggle" role="group" aria-label="Режим отображения холста" data-i18n-aria="aria_view_mode">
+                            <button type="button" id="view-fit-btn" class="view-toggle-btn active" title="По размеру: показать весь кадр и все строки субтитров" data-i18n-title="title_view_fit">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                                <span data-i18n="view_fit">По размеру</span>
+                            </button>
+                            <button type="button" id="view-actual-btn" class="view-toggle-btn" title="1:1: просмотр деталей в исходном размере" data-i18n-title="title_view_actual">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <span data-i18n="view_actual">1:1</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dock-right">
+                        <span class="dock-badge">Canvas 2D Engine</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 检查器控制面板 (35%) -->
+            <aside class="control-panel">
+                <h2 class="sr-only" data-i18n="controls_heading">Панель настройки стиля субтитров и склейки</h2>
+
+                <!-- 分段选项卡切换 -->
+                <div class="inspector-tabs" role="tablist">
+                    <button type="button" class="tab-btn active" id="tab-btn-script" data-tab="script" role="tab" aria-selected="true" data-i18n="tab_script">Сценарий</button>
+                    <button type="button" class="tab-btn" id="tab-btn-style" data-tab="style" role="tab" aria-selected="false" data-i18n="tab_style">Типографика</button>
+                    <button type="button" class="tab-btn" id="tab-btn-canvas" data-tab="canvas" role="tab" aria-selected="false" data-i18n="tab_canvas">Кадрирование</button>
+                </div>
+
+                <!-- 面板内容容器 -->
+                <div class="inspector-content">
+                    <!-- Tab 1: 台词脚本 -->
+                    <div class="tab-pane active" id="pane-script">
+                        <div class="pane-section">
+                            <div class="quote-tags-wrapper">
+                                <div class="tags-label" data-i18n="label_quote_tags">Классические реплики из фильмов</div>
+                                <div class="quote-chips">
+                                    <button type="button" class="quote-chip" data-quote="pi" data-i18n="chip_pi">Жизнь Пи</button>
+                                    <button type="button" class="quote-chip" data-quote="interstellar" data-i18n="chip_interstellar">Интерстеллар</button>
+                                    <button type="button" class="quote-chip" data-quote="mood" data-i18n="chip_mood">Любовное настроение</button>
+                                    <button type="button" class="quote-chip" data-quote="truman" data-i18n="chip_truman">Шоу Трумана</button>
+                                </div>
+                            </div>
+
+                            <div class="script-editor-box">
+                                <div class="editor-header">
+                                    <span class="editor-label" data-i18n="group_subtitle">Текст диалога</span>
+                                    <span class="editor-hint" data-i18n="hint_enter">Нажмите Enter, чтобы создать фрагмент</span>
+                                </div>
+                                <textarea id="subtitle-text" placeholder="Введите реплики из фильма, нажмите Enter для нового фрагмента субтитров..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: 字体质感与排版 -->
+                    <div class="tab-pane" id="pane-style">
+                        <div class="pane-section">
+                            <!-- 胶片调色预设 -->
+                            <div class="preset-section">
+                                <div class="section-label" data-i18n="label_presets">Пресеты цвета плёнки</div>
+                                <div class="preset-grid">
+                                    <button type="button" class="preset-card active" data-preset="nolan">
+                                        <span class="preset-swatch swatch-nolan">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_nolan_name">Nolan White</span>
+                                        <span class="preset-desc" data-i18n="preset_nolan_desc">Чистый белый · чёрная обводка</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="wong">
+                                        <span class="preset-swatch swatch-wong">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_wong_name">Вонг Кар-вай, золото</span>
+                                        <span class="preset-desc" data-i18n="preset_wong_desc">Тёплое ретро-золото · атмосферно</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="tokyo">
+                                        <span class="preset-swatch swatch-tokyo">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_tokyo_name">Токийский циан</span>
+                                        <span class="preset-desc" data-i18n="preset_tokyo_desc">Холодный циан · тонкая обводка</span>
+                                    </button>
+                                    <button type="button" class="preset-card" data-preset="french">
+                                        <span class="preset-swatch swatch-french">Aa</span>
+                                        <span class="preset-name" data-i18n="preset_french_name">Минимальный моно</span>
+                                        <span class="preset-desc" data-i18n="preset_french_desc">Высокий контраст · крупный шрифт</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 字体微调 -->
+                            <div class="field">
+                                <label for="font-family" data-i18n="label_font">Семейство шрифтов</label>
+                                <select id="font-family" class="studio-select">
+                                    <option value="'Noto Sans SC', sans-serif" data-i18n="font_sc">Китайский (Noto Sans SC)</option>
+                                    <option value="'Roboto', sans-serif" data-i18n="font_roboto">Латиница (Roboto)</option>
+                                    <option value="'IBM Plex Mono', monospace" data-i18n="font_mono">Моноширинный (IBM Plex Mono)</option>
+                                    <option value="'Noto Sans Thai', sans-serif" data-i18n="font_thai">Тайский (Noto Sans Thai)</option>
+                                    <option value="'Noto Sans Vietnamese', sans-serif" data-i18n="font_vietnamese">Вьетнамский (Noto Sans Vietnamese)</option>
+                                    <option value="'Noto Sans Arabic', sans-serif" data-i18n="font_arabic">Арабский (Noto Sans Arabic)</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_font_size">Размер шрифта</span>
+                                    <span class="slider-value"><span id="font-size-val">22</span> px</span>
+                                </div>
+                                <input type="range" id="font-size" min="12" max="140" value="22" class="studio-slider">
+                            </div>
+
+                            <div class="field colors-row">
+                                <div class="color-item">
+                                    <span class="color-label" data-i18n="color_text">Цвет текста</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="font-color" value="#ffffff" title="Цвет текста" data-i18n-title="color_text">
+                                    </div>
+                                </div>
+                                <div class="color-item">
+                                    <span class="color-label" data-i18n="color_stroke">Цвет обводки</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="stroke-color" value="#000000" title="Цвет обводки" data-i18n-title="color_stroke">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_bar_height">Высота фрагмента</span>
+                                    <span class="slider-value"><span id="bar-height-val">48</span> px</span>
+                                </div>
+                                <input type="range" id="bar-height" min="20" max="260" value="48" class="studio-slider">
+                            </div>
+
+                            <div class="field">
+                                <div class="slider-header">
+                                    <span data-i18n="label_padding_x">Безопасные поля</span>
+                                    <span class="slider-value"><span id="padding-x-val">32</span> px</span>
+                                </div>
+                                <input type="range" id="padding-x" min="0" max="120" value="32" class="studio-slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: 水印与画幅 -->
+                    <div class="tab-pane" id="pane-canvas">
+                        <div class="pane-section">
+                            <div class="switch-row">
+                                <label for="wm-enable" data-i18n="label_wm_enable" class="switch-label">Включить водяной знак</label>
+                                <input type="checkbox" id="wm-enable" class="studio-switch">
+                            </div>
+
+                            <div id="wm-controls" class="wm-controls-container disabled-group">
+                                <div class="field">
+                                    <label for="wm-text" data-i18n="label_wm_content">Текст водяного знака</label>
+                                    <input type="text" id="wm-text" value="Shadow Snap · Cinema Studio" class="studio-input">
+                                </div>
+
+                                <div class="field">
+                                    <label for="wm-pos" data-i18n="label_wm_pos">Положение</label>
+                                    <select id="wm-pos" class="studio-select">
+                                        <option value="bottom-right" data-i18n="pos_bottom_right">Внизу справа</option>
+                                        <option value="bottom-left" data-i18n="pos_bottom_left">Внизу слева</option>
+                                        <option value="top-right" data-i18n="pos_top_right">Вверху справа</option>
+                                        <option value="top-left" data-i18n="pos_top_left">Вверху слева</option>
+                                        <option value="center" data-i18n="pos_center">По центру</option>
+                                    </select>
+                                </div>
+
+                                <div class="field">
+                                    <div class="slider-header">
+                                        <span data-i18n="label_wm_opacity">Непрозрачность</span>
+                                        <span class="slider-value"><span id="wm-opacity-val">0.5</span></span>
+                                    </div>
+                                    <input type="range" id="wm-opacity" min="0.1" max="1" step="0.05" value="0.5" class="studio-slider">
+                                </div>
+
+                                <div class="field">
+                                    <div class="slider-header">
+                                        <span data-i18n="label_wm_size">Размер шрифта</span>
+                                        <span class="slider-value"><span id="wm-size-val">14</span> px</span>
+                                    </div>
+                                    <input type="range" id="wm-size" min="10" max="40" value="14" class="studio-slider">
+                                </div>
+
+                                <div class="field">
+                                    <span class="color-label" data-i18n="label_wm_color">Цвет</span>
+                                    <div class="color-picker-wrap">
+                                        <input type="color" id="wm-color" value="#ffffff" title="Цвет" data-i18n-title="label_wm_color">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- The visible guide and JSON-LD share the same localized facts. -->
+        <details id="product-guide" class="product-guide">
+            <summary>Руководство по продукту и частые вопросы</summary>
+            <article aria-label="Руководство по продукту и частые вопросы"><h2>О Shadow Snap</h2><p>Shadow Snap создан Ward Lu и Shadow Lab. Он помогает любителям кино и создателям контента превратить один кадр из фильма и несколько реплик в длинное изображение с субтитрами. Первый кадр сохраняется целиком, а под ним присоединяются фрагменты нижней области субтитров.</p>
+<h2>Основные функции</h2><ul><li>Первый кадр сохраняется целиком, а следующие фрагменты субтитров склеиваются автоматически.</li><li>Изображения обрабатываются и экспортируются локально с помощью HTML5 Canvas, фото не загружаются на сервер.</li><li>Доступны шрифты для китайского, латиницы, тайского, вьетнамского и арабского языков. Можно настраивать размер шрифта, цвета, обводку, безопасные поля и водяные знаки.</li><li>Использование бесплатное, без аккаунта и установки. За раз импортируется одно изображение.</li></ul>
+<h2>Создайте изображение с субтитрами в три шага</h2><ol><li>Импортируйте кадр из фильма или скриншот видео в формате JPG, PNG или WebP.</li><li>Введите диалог, начиная каждый фрагмент субтитров с новой строки.</li><li>Настройте шрифт, высоту фрагмента и водяной знак, затем выберите «Экспорт изображения». На телефоне сохраните изображение через меню «Поделиться» или нажмите на него и удерживайте.</li></ol>
+<h2>Часто задаваемые вопросы</h2><dl><dt><h3>Что такое Shadow Snap?</h3></dt><dd><p>Shadow Snap — бесплатный инструмент для создания киношных изображений с субтитрами. Он объединяет один кадр и несколько реплик. Аккаунт и установка не требуются.</p></dd><dt><h3>Как создать изображение с репликами из фильма?</h3></dt><dd><p>Импортируйте одно изображение, введите реплики на отдельных строках, настройте шрифт и высоту фрагмента, затем экспортируйте результат. Первый кадр сохраняется целиком, а последующие реплики используют фрагменты нижней области.</p></dd><dt><h3>Мои фотографии загружаются на сервер?</h3></dt><dd><p>Нет. Обработка и экспорт изображений выполняются в локальной памяти браузера. Сайт загружает шрифты и использует веб-аналитику, но ни то ни другое не требует загрузки ваших изображений.</p></dd><dt><h3>Как сохранить изображение на телефоне?</h3></dt><dd><p>После экспорта сохраните изображение через системное меню «Поделиться». Браузеры без поддержки отправки откроют окно сохранения: нажмите «Скачать» или нажмите на изображение и удерживайте его. Если сохранение внутри WeChat не работает, откройте страницу в системном браузере.</p></dd><dt><h3>Какие языки и шрифты поддерживаются?</h3></dt><dd><p>Интерфейс доступен на 12 языках: упрощённом китайском, традиционном китайском, английском, японском, корейском, испанском, португальском, французском, немецком, русском, индонезийском и арабском. Варианты шрифтов включают китайскую, латинскую, тайскую, вьетнамскую и арабскую письменности. Отображение зависит от браузера и доступности шрифтов.</p></dd></dl>
+<h2>Автор и поддержка</h2><p>Создано Ward Lu и Shadow Lab. Отзывы отправляйте на support@shadow.wang или напишите автору в X: @Gollumgulu.</p>
+<p class="locale-links"><a href="/" hreflang="zh" lang="zh-CN" data-locale="zh">简体中文</a> · <a href="/en/" hreflang="en" lang="en" data-locale="en">English</a> · <a href="/zh-hant/" hreflang="zh-Hant" lang="zh-Hant" data-locale="zh-hant">繁體中文</a> · <a href="/ja/" hreflang="ja" lang="ja" data-locale="ja">日本語</a> · <a href="/ko/" hreflang="ko" lang="ko" data-locale="ko">한국어</a> · <a href="/es/" hreflang="es" lang="es" data-locale="es">Español</a> · <a href="/pt/" hreflang="pt" lang="pt-BR" data-locale="pt">Português</a> · <a href="/fr/" hreflang="fr" lang="fr" data-locale="fr">Français</a> · <a href="/de/" hreflang="de" lang="de" data-locale="de">Deutsch</a> · <a href="/ru/" hreflang="ru" lang="ru" data-locale="ru">Русский</a> · <a href="/id/" hreflang="id" lang="id" data-locale="id">Bahasa Indonesia</a> · <a href="/ar/" hreflang="ar" lang="ar" data-locale="ar">العربية</a></p></article>
+        </details>
+
+        <!-- Directory badges: their image hosts must stay in sync with img-src in vercel.json. -->
+        <nav class="featured-on" aria-label="Каталоги продуктов, в которых представлен Shadow Snap" data-i18n-aria="aria_featured_on">
+            <span class="featured-on-label" data-i18n="featured_on">Представлено в</span>
+            <a href="https://nicklaunches.com/products/shadow-snap-subtitle-image-maker/" target="_blank" rel="noopener noreferrer"><img src="https://nicklaunches.com/badges/featured.png" alt="Featured on Nick Launches" width="122" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://twelve.tools" target="_blank" rel="noopener noreferrer"><img src="https://twelve.tools/badge0-dark.svg" alt="Featured on Twelve Tools" width="104" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://fazier.com" target="_blank" rel="noopener noreferrer"><img src="https://fazier.com/api/v1/public/badges/launch_badges.svg?badge_type=featured&amp;theme=neutral" alt="Featured on Fazier" width="119" height="28" loading="lazy" decoding="async"></a>
+            <a href="https://xinquji.com" target="_blank" rel="noopener noreferrer"><img data-xinquji-badge src="https://xinquji.com/badge?theme=dark&amp;lang=en" alt="Featured on Xinquji" width="104" height="28" loading="lazy" decoding="async"></a>
+        </nav>
+
+        <!-- 极简单行工作室页脚 -->
+        <footer class="app-footer">
+            <h2 class="sr-only" data-i18n="footer_heading">Официальные продукты и поддержка</h2>
+            <a data-portal-link href="https://shadow.wang/ru" target="_blank" rel="noopener noreferrer" title="Перейти на официальный сайт Shadow Lab" data-i18n-title="title_shadow_lab" class="footer-link-with-logo">
+                <img src="/public/brand_assets/shadow_lab_logo.svg" alt="Shadow Lab" title="Сайт Shadow Lab" data-i18n-title="title_shadow_lab_logo" class="footer-logo">
+                <span>Shadow Lab</span>
+            </a>
+            <span class="divider">/</span>
+            <a data-product-link href="https://shadow.wang/ru/products/shadow-snap" target="_blank" rel="noopener noreferrer" title="Подробности о продукте и обзор функций" data-i18n-title="title_product_page"><span data-i18n="footer_product">Продукт</span></a>
+            <span class="divider">/</span>
+            <span class="wechat-qr-trigger" title="Отсканируйте, чтобы подписаться на Ward&#39;s AI Journey" tabindex="0" role="button" aria-label="Отсканируйте, чтобы подписаться на Ward&#39;s AI Journey" data-i18n-title="title_wechat_qr" data-i18n-aria="title_wechat_qr">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="footer-icon">
+                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.27-.027-.406-.032zm-2.953 3.028c.506 0 .916.418.916.93s-.41.93-.916.93a.923.923 0 0 1-.916-.93c0-.512.41-.93.916-.93zm4.931 0c.506 0 .916.418.916.93s-.41.93-.916.93a.923.923 0 0 1-.916-.93c0-.512.41-.93.916-.93z" />
+                </svg>
+                <span data-i18n="footer_wechat">Ward&#39;s AI Journey</span>
+                <div class="wechat-qr-popup">
+                    <img src="/public/brand_assets/wechat-public-account.png" alt="Отсканируйте, чтобы подписаться на Ward&#39;s AI Journey" title="Отсканируйте, чтобы подписаться на Ward&#39;s AI Journey" data-i18n-title="title_wechat_qr" data-i18n-alt="title_wechat_qr">
+                    <p data-i18n="footer_wechat_hint">Отсканируйте, чтобы подписаться на Ward&#39;s AI Journey</p>
+                </div>
+            </span>
+            <span class="divider">/</span>
+            <a href="https://xhslink.cn/m/4W1NWyRrxv5" target="_blank" rel="noopener noreferrer" title="Подписаться на автора в Xiaohongshu (Ward)" data-i18n-title="title_xiaohongshu"><span data-i18n="footer_xiaohongshu">Xiaohongshu</span></a>
+            <span class="divider">/</span>
+            <a href="https://x.com/Gollumgulu" target="_blank" rel="noopener noreferrer" title="Подписаться на автора в X (@Gollumgulu)" data-i18n-title="title_x">𝕏 @Gollumgulu</a>
+            <span class="divider">/</span>
+            <a href="mailto:support@shadow.wang?subject=Shadow%20Snap%20%E6%84%8F%E8%A7%81%E5%8F%8D%E9%A6%88" title="Отправить отзыв на support@shadow.wang" data-i18n-title="title_feedback"><span data-i18n="footer_feedback">Обратная связь</span></a>
+        </footer>
+    </div>
+
+    <!-- 移动端保存浮层：系统分享不可用时，提供长按保存与可点击下载两条路径 -->
+    <div id="save-overlay" class="save-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="save-hint">
+        <div class="save-sheet">
+            <p class="save-notice" data-i18n="save_wechat_notice">Нажмите и удерживайте изображение, чтобы сохранить его. Если это не получилось, нажмите ··· в правом верхнем углу и выберите «Открыть в браузере».</p>
+            <p class="save-hint" id="save-hint" data-i18n="save_hint">Нажмите «Скачать», чтобы сохранить изображение, или нажмите и удерживайте изображение ниже и выберите «Сохранить изображение»</p>
+            <img id="save-preview" class="save-preview" alt="Предпросмотр экспортированного изображения с субтитрами" data-i18n-alt="save_preview_alt">
+            <div class="save-actions">
+                <a id="save-download" class="save-btn primary" download="shadow_snap.png" data-i18n="btn_download_original">Скачать</a>
+                <button type="button" id="save-close" class="save-btn" data-i18n="btn_close">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示容器 -->
+    <div id="toast-container"></div>
+
+    <script type="module" src="/script.js"></script>
+</body>
+
+</html>
