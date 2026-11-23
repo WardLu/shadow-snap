@@ -13,7 +13,7 @@
 - 页面此前从 Google Fonts 请求的七个字体族（Archivo Black、IBM Plex Mono、Noto Sans SC、Roboto、Noto Sans Thai、Noto Sans Arabic，以及“Noto Sans Vietnamese”选项）改为由站点自己在 `/public/fonts/` 下提供。页面不再请求 `fonts.googleapis.com` 和 `fonts.gstatic.com`，`vercel.json` 里 Content-Security-Policy 的 `style-src` 和 `font-src` 只允许 `'self'`。
 - 之前的 Google Fonts 请求写的是 `Noto Sans Vietnamese`，但 Google Fonts 没有这个字体族。这个选项的值保持不变，现在改由覆盖越南文的 Noto Sans 提供。
 - 字体版本固定在 `config/fonts.json`。`public/fonts/fonts.lock.json` 记录每个 Fontsource 包的 npm integrity 和每个文件的 SHA-256，每个字体目录都保留 SIL Open Font License 1.1。`scripts/fonts/vendor-fontsource.mjs`（来自 shadow-devkit）负责重新生成这些文件。
-- `.vercelignore` 现在只排除仓库根目录的 `LICENSE`。之前的 `LICENSE` 规则会匹配任意层级的文件，字体许可证文件会因此漏出部署。
+- `.vercelignore` 现在只排除仓库根目录的 `LICENSE`。之前的 `LICENSE` 规则会匹配任意层级的文件，导致字体许可证文件不会随站点部署。
 
 ### 修复
 
@@ -160,7 +160,7 @@
 
 ## v1.1.7 - 2026-09-05
 
-- 核对受保护的 production 祖先链，保留百度验证文件。
+- 对齐受保护的 `production` 分支提交历史，保留百度验证文件。
 - 保持 v1.1.6 的产品行为，只推进发布元数据。
 
 ## v1.1.6 - 2026-09-05

@@ -206,7 +206,7 @@ Release notes for each published version of Shadow Snap (影瞬), a tool that tu
 
 ### Key changes
 
-- **Existing baseline adoption**: the controlled release flow can take over the static HTML/Canvas deployment that was already running in production.
+- **Existing baseline adoption**: the controlled release flow can take over the static HTML/Canvas deployment that was already running reliably in production.
 
 ## v1.1.1 - 2026-08-30
 
