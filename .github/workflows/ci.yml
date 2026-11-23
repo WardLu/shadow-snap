@@ -1,0 +1,36 @@
+# Hosted CI: runs the same check list as the local gate (`npm run ci`), without writing a local record.
+# Security: `pull_request` only (never `pull_request_target`), read-only token, no secrets,
+# third-party actions pinned to full commit SHAs, external contributors need approval before runs.
+name: ci
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, production]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the full history
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install gitleaks 8.30.1
+        run: |
+          dir="$RUNNER_TEMP/gitleaks"; mkdir -p "$dir"
+          curl -sSfL -o "$dir/gitleaks.tgz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $dir/gitleaks.tgz" | sha256sum -c -
+          tar -xzf "$dir/gitleaks.tgz" -C "$dir" gitleaks
+          echo "$dir" >> "$GITHUB_PATH"
+      - name: Check gitleaks
+        run: command -v gitleaks && gitleaks version | grep -qx '8.30.1'
+      - run: npm run ci:check
