@@ -24,10 +24,10 @@ npm run release:production   # = bash scripts/release/deploy-production.sh
 
 1. 按 `.nvmrc` 挂载 `mise` 的 Node，并断言主版本一致。
 2. `release-config.mjs check` 校验 `config/release-production.json`（fail-closed）；脚本只通过 `release-config.mjs get <key>` 读取参数。
-3. 发布门禁：工作区干净（含未跟踪文件）、当前分支是 `productionBranch`（`production`）、`HEAD` 等于 fetch 后的 `origin/production` 且等于 `git ls-remote` 读到的远端值。第一次通过时锁定这个提交；准入后、上传前、上传后各复核一次，HEAD 变了就中止。
+3. 发布门禁：工作区干净（含未跟踪文件）、当前分支是 `productionBranch`（`production`）、`HEAD` 等于 fetch 后的 `origin/production` 且等于 `git ls-remote` 读到的远端值。第一次通过时锁定这个提交；准入后、上传前、上传后和 promote 前各复核一次，HEAD 或远端变了就中止。
 4. 准入：`run-admission-commands.mjs` 以环境变量白名单和临时 `HOME` 复跑 `admissionCommands`（`npm ci --ignore-scripts`、release 门禁测试、`validate-static-site.mjs`），跑完工作区必须仍然干净。
 5. `vercel-project-binding.mjs` 核对 Team/Project 身份后 `vercel pull`（关闭 Vercel CLI 遥测）。
-6. 把锁定提交写成临时目录（直接写 blob 原始字节，不走 checkout）再 `vercel deploy <快照> --prod --skip-domain`，触发 Vercel 侧远程构建：工作区里的未跟踪、被忽略文件和上传期间的改动都不会进入部署。然后用 `vercel curl --deployment` 对候选部署做逐字节预检；不一致即中止，生产域名不动。
+6. 把锁定提交写成临时目录（直接写 blob 原始字节，不走 checkout），在这个目录里运行 `vercel deploy --prod --skip-domain`（CLI 从启动目录读取 `vercel.json`），触发 Vercel 侧远程构建：工作区里的未跟踪、被忽略文件和上传期间的改动都不会进入部署。然后用 `vercel curl --deployment` 对候选部署做逐字节预检；不一致即中止，生产域名不动。
 7. 回读部署身份（项目、团队、`READY`、`production`、`releaseCommitSha`）后 `vercel promote`。
 8. 两个生产域名（`snap.shadow.wang`、`sie.shadow.wang`）重复逐字节比对，并验收 `acceptance.path` 直接返回 200（不跟随重定向）、带齐 `acceptance.requiredHeaders`、正文包含 `acceptance.bodyIncludes`。成功输出 `线上版本 = 提交 <SHA>`。
 

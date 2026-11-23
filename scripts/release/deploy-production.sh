@@ -216,7 +216,9 @@ while IFS= read -r -d '' ENTRY; do
   esac
 done < "$WORK_DIR/snapshot.tree"
 cp .vercel/project.json "$SNAPSHOT_DIR/.vercel/project.json"
-DEPLOY_OUTPUT="$(vercel deploy "$SNAPSHOT_DIR" --meta "releaseCommitSha=${HEAD_SHA}" --prod --skip-domain --yes --scope "$TEAM_ID")"
+# Start the CLI inside the snapshot: it reads vercel.json and the project link from its working directory, so a
+# vercel.json changed in the worktree during the release must not shape the build.
+DEPLOY_OUTPUT="$(cd "$SNAPSHOT_DIR" && vercel deploy --meta "releaseCommitSha=${HEAD_SHA}" --prod --skip-domain --yes --scope "$TEAM_ID")"
 assert_release_identity "上传后"
 DEPLOY_URL="$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -n 1 || true)"
 if [ -z "$DEPLOY_URL" ]; then
@@ -238,6 +240,9 @@ echo "👉 [7/8] 核对部署身份并 Promote 到生产域名..."
 node scripts/release/vercel-project-binding.mjs --check
 vercel api "/v13/deployments/${DEPLOY_URL#https://}" --scope "$TEAM_ID" --raw |
   node scripts/release/vercel-project-binding.mjs --deployment "$HEAD_SHA"
+# The candidate check reads every asset; production may have moved meanwhile, so the locked commit must still be
+# the remote tip right before the domains switch.
+assert_release_identity "Promote 前"
 vercel promote "$DEPLOY_URL" --yes --scope "$TEAM_ID"
 echo "✅ Promote 完成"
 
@@ -245,7 +250,7 @@ echo "✅ Promote 完成"
 # 8. 逐域名验收：逐字节比对派生清单，再验收端点（直接 200、响应头、正文片段）
 # ------------------------------------------------------------------------------
 echo "👉 [8/8] 生产域名验收..."
-ROLLBACK_HINT="已 promote 到 ${DEPLOY_URL}。如需回滚：在 Vercel 中找到上一个生产部署，执行 vercel promote <上一个部署 URL> --scope ${TEAM_ID}，或用上一个已发布提交重新运行本脚本。"
+ROLLBACK_HINT="已 promote 到 ${DEPLOY_URL}。如需回滚：在 Vercel 中找到上一个生产部署，执行 vercel promote <上一个部署 URL> --scope ${TEAM_ID}；或在 ${EXPECTED_BRANCH} 上提交 git revert、运行 npm run ci 并推送后重新运行本脚本（不得强推改写 ${EXPECTED_BRANCH}）。"
 while IFS= read -r DOMAIN <&4; do
   [ -n "$DOMAIN" ] || continue
   verify_against_commit "https://${DOMAIN}" "线上比对 ${DOMAIN}" ||

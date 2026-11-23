@@ -23,42 +23,45 @@ function fetchCode(codes) {
 ${helper}
 echo 0 > '${counter}'
 fake() { n=$(( $(cat '${counter}') + 1 )); echo "$n" > '${counter}'; set -- ${codes.join(' ')}; eval "c=\\\${$n:-200}"; code="\${c%%:*}"; exit_code=0; case "$c" in *:*) exit_code="\${c#*:}" ;; 000) exit_code=7 ;; esac; printf 'HTTP/1.1 %s\r\nRetry-After: 0\r\n\r\n' "$code" > '${dir}/headers'; printf '%s' "$code"; return "$exit_code"; }
-printf '%s' "$(fetch_code '${dir}/body' '${dir}/headers' curl fake)"`;
+out="$(fetch_code '${dir}/body' '${dir}/headers' curl fake)"; rc=$?; printf '%s %s' "$out" "$rc"`;
     const result = spawnSync('/bin/bash', ['-c', program], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin` } });
     assert.equal(result.status, 0, result.stderr);
-    return { code: result.stdout, calls: Number(readFileSync(counter, 'utf8')), stderr: result.stderr };
+    const [code, rc] = result.stdout.split(' ');
+    return { code, ok: rc === '0', calls: Number(readFileSync(counter, 'utf8')), stderr: result.stderr };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
 test('fetch_code retries a fetch with no HTTP response and recovers', () => {
-  const { code, calls } = fetchCode(['000', '000', '200']);
-  assert.deepEqual({ code, calls }, { code: '200', calls: 3 });
+  const { code, ok, calls } = fetchCode(['000', '000', '200']);
+  assert.deepEqual({ code, ok, calls }, { code: '200', ok: true, calls: 3 });
 });
 
 test('fetch_code stops after three transport failures', () => {
-  const { code, calls } = fetchCode(['000', '000', '000', '200']);
-  assert.deepEqual({ code, calls }, { code: '000', calls: 3 });
+  const { code, ok, calls } = fetchCode(['000', '000', '000', '200']);
+  assert.deepEqual({ code, ok, calls }, { code: '000', ok: false, calls: 3 });
 });
 
 test('fetch_code retries a transient HTTP status and stops after three', () => {
-  assert.deepEqual(fetchCode(['503', '502', '200']).code, '200');
-  const { code, calls } = fetchCode(['503', '429', '503', '200']);
-  assert.deepEqual({ code, calls }, { code: '503', calls: 3 });
+  const recovered = fetchCode(['503', '502', '200']);
+  assert.deepEqual({ code: recovered.code, ok: recovered.ok }, { code: '200', ok: true });
+  const { code, ok, calls } = fetchCode(['503', '429', '503', '200']);
+  assert.deepEqual({ code, ok, calls }, { code: '503', ok: false, calls: 3 });
 });
 
 test('fetch_code returns any other HTTP status at once, such as 404', () => {
-  const { code, calls, stderr } = fetchCode(['404', '200']);
-  assert.deepEqual({ code, calls }, { code: '404', calls: 1 });
+  const { code, ok, calls, stderr } = fetchCode(['404', '200']);
+  assert.deepEqual({ code, ok, calls }, { code: '404', ok: false, calls: 1 });
   assert.doesNotMatch(stderr, /重试/);
 });
 
 test('fetch_code retries an HTTP 200 whose transfer broke off, and stops after three', () => {
-  assert.deepEqual(fetchCode(['200:18', '200']).code, '200');
-  const { code, calls } = fetchCode(['200:18', '200:56', '200:28', '200']);
-  assert.deepEqual({ code, calls }, { code: '200', calls: 3 });
+  const recovered = fetchCode(['200:18', '200']);
+  assert.deepEqual({ code: recovered.code, ok: recovered.ok, calls: recovered.calls }, { code: '200', ok: true, calls: 2 });
+  const { code, ok, calls } = fetchCode(['200:18', '200:56', '200:28', '200']);
+  assert.deepEqual({ code, ok, calls }, { code: '200', ok: false, calls: 3 }, 'three broken transfers fail even though curl printed 200');
 });
 
 test('fetch_code does not retry a command that failed before sending a request', () => {
-  const { code, calls } = fetchCode(['oops:1', '200']);
-  assert.deepEqual({ code, calls }, { code: 'oops', calls: 1 });
+  const { code, ok, calls } = fetchCode(['oops:1', '200']);
+  assert.deepEqual({ code, ok, calls }, { code: 'oops', ok: false, calls: 1 });
 });
