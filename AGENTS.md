@@ -17,6 +17,7 @@
 ## 版本与发布规范
 
 - **项目状态**：线上保持可用，按明确授权的需求迭代（以 SEO、性能和兼容性修复为主）；每次发布都按下述门禁执行，不能把旧发布口径当作新版本验收证据。
+- **发布说明**：`RELEASE_NOTES.md`（英文，默认）与 `RELEASE_NOTES.zh-CN.md`（中文）只记录已发布的版本，两份同步更新、结构一致。未发布的改动记在本地 `.local/unreleased.md`（`.gitignore` 与 `.vercelignore` 都已排除，不提交、不部署），发版时再整理进两份发布说明。
 - **生产发布刚性执行机制**：
   - **Vercel 自动部署已完全关闭**：`vercel.json` 显式配置了 `"git": { "deploymentEnabled": false }`，且生产域名不自动分配。严禁在合并 PR 到 `main` 或 `production` 后盲目等待 Webhook 自动部署或空转轮询 404。
   - **唯一合法发布入口**：工作区或本地执行生产发布，**唯一且强制**执行 `bash scripts/release/deploy-production.sh`（或 `npm run release:production`）。

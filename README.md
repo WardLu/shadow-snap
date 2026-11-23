@@ -93,6 +93,8 @@ Production releases are made by the maintainer with a single release script. See
 
 The code is released under the [MIT License](LICENSE). The bundled fonts in `public/fonts/` and the Chinese subset in `public/fonts-subset/` are under the SIL Open Font License 1.1; the license text is in each font folder under `public/fonts/`.
 
+The MIT License covers the code only. The names 影瞬 and Shadow Snap, the logos, and the brand images in `public/brand_assets/` (including the WeChat Official Account QR code) are not licensed for reuse. Please do not use them in your own product without permission.
+
 ## Contact
 
 Shadow Snap is made by Ward Lu at [Shadow Lab](https://shadow.wang). Interested in B2B products, AI product development, supply-chain digitalization, or the Shadow product line? Feel free to reach out:

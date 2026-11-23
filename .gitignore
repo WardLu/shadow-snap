@@ -6,3 +6,4 @@ x-article-publisher-skill/
 .release-state/
 .mimosa/
 .worktrees/
+.local/
