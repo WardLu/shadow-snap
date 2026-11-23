@@ -10,7 +10,7 @@
 
 ### 变更
 
-- 中文页不再下载约 119 个 Noto Sans SC 分片，改为单个 161,876 B 的 CJK 子集（`public/fonts-subset/noto-sans-sc-cjk.woff2`），并让 `--font-ui` 优先使用系统中文字体。移除了页面没有用到的 Archivo Black 包。本地 `/zh-hant/` 实测：总传输 406,926 B / 19 个请求，其中字体 72,246 B（旧线上同页：2,979,497 B / 70 个请求，其中 54 个字体请求共 2,820,852 B）。
+- 中文页不再从 101 个按 `unicode-range` 拆分的 Noto Sans SC 分片文件加载字体，改为单个 161,876 B 的 CJK 子集（`public/fonts-subset/noto-sans-sc-cjk.woff2`），并让 `--font-ui` 优先使用系统中文字体。移除了页面没有用到的 Archivo Black 包。本地 `/zh-hant/` 实测：总传输 406,926 B / 19 个请求，其中字体 72,246 B（旧线上同页：2,979,497 B / 70 个请求，其中 54 个字体请求共 2,820,852 B）。
 - 每个页面的 WebApplication JSON-LD 合并为一份。新增 IndexNow 密钥文件，`robots.txt` 新增 Yandex 规则（用 `Clean-param` 忽略 UTM 参数）。
 - 中文分享图（`og_shadow_snap.png`）不再显示版本号，与英文图一致。
 - 源码重新公开在 [github.com/WardLu/shadow-snap](https://github.com/WardLu/shadow-snap)。GitHub Actions 上的托管 CI 运行与本地门禁相同的检查。

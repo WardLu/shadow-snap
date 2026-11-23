@@ -10,7 +10,7 @@ Release notes for each published version of Shadow Snap (影瞬), a tool that tu
 
 ### Changed
 
-- Chinese pages no longer download about 119 Noto Sans SC slices. They use a single 161,876-byte CJK subset (`public/fonts-subset/noto-sans-sc-cjk.woff2`), and `--font-ui` prefers the system's Chinese fonts. The unused Archivo Black package was removed. Measured locally on `/zh-hant/`: 406,926 B in 19 requests, of which fonts are 72,246 B (the previous live page: 2,979,497 B in 70 requests, with 2,820,852 B in 54 font requests).
+- Chinese pages no longer load Noto Sans SC from 101 `unicode-range` slice files. They use a single 161,876-byte CJK subset (`public/fonts-subset/noto-sans-sc-cjk.woff2`), and `--font-ui` prefers the system's Chinese fonts. The unused Archivo Black package was removed. Measured locally on `/zh-hant/`: 406,926 B in 19 requests, of which fonts are 72,246 B (the previous live page: 2,979,497 B in 70 requests, with 2,820,852 B in 54 font requests).
 - The WebApplication JSON-LD is consolidated on every page. Added an IndexNow key file and `robots.txt` rules for Yandex (`Clean-param` for UTM parameters).
 - The Chinese social image (`og_shadow_snap.png`) no longer shows a version number, the same as the English one.
 - The source code is public again at [github.com/WardLu/shadow-snap](https://github.com/WardLu/shadow-snap). Hosted CI on GitHub Actions runs the same checks as the local gate.
