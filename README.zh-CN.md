@@ -87,11 +87,13 @@ npm run ci:check         # 运行完整的本地检查清单，但不写入记�
 
 问题反馈和建议，欢迎提交到 [GitHub Issues](https://github.com/WardLu/shadow-snap/issues)，或发邮件到 [contact@wardlu.com](mailto:contact@wardlu.com)。提交 PR 前，请先运行 `npm run ci:check`。页面文字在 `translations.mjs` 和 `seo-content.mjs` 里；改完运行 `npm run seo:generate`，不要直接改生成的语言页面。
 
-生产发布由维护者通过唯一的发布脚本完成，见 [docs/release-process.md](docs/release-process.md)。版本历史见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+生产发布由维护者通过唯一的发布脚本完成，见 [docs/release-process.md](docs/release-process.md)。版本历史见 [RELEASE_NOTES.zh-CN.md](RELEASE_NOTES.zh-CN.md)。
 
 ## 许可证
 
-代码以 [MIT 许可证](LICENSE) 发布。`public/fonts/` 里的字体和 `public/fonts-subset/` 里的中文子集字体采用 SIL Open Font License 1.1；许可证原文在 `public/fonts/` 下的各个字体目录里。
+- **代码和文档**：以 [MIT 许可证](LICENSE) 发布。
+- **字体**：`public/fonts/` 里的字体和 `public/fonts-subset/` 里的中文子集字体采用 SIL Open Font License 1.1；许可证原文在 `public/fonts/` 下的各个字体目录里，以及 `public/fonts-subset/LICENSE`。
+- **品牌素材**：不在 MIT 授权范围内。“影瞬”“Shadow Snap”的名称和 logo，`public/brand_assets/` 里的图片（含公众号二维码）、根目录的 `favicon.ico`，以及 `assets/readme/` 里的 README 配图，未经许可不得用于你自己的产品。
 
 ## 联系
 

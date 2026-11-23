@@ -1,14 +1,8 @@
 # Shadow Snap Release Notes
 
-本文档记录 Shadow Snap（影瞬 · 电影感多行字幕长图生成工具）历史版本发布说明。
+**English** · [简体中文](RELEASE_NOTES.zh-CN.md)
 
----
-
-## Unreleased
-
-### Changed
-
-- 中文页不再下载约 119 个 Noto Sans SC 分片：改为单个 161,876 B 的 CJK 子集（`public/fonts-subset/noto-sans-sc-cjk.woff2`），并让 `--font-ui` 优先使用系统中文字体。已移除未被页面使用的 Archivo Black 包；本地 `/zh-hant/` 实测总传输 406,926 B / 19 请求，字体 72,246 B（旧线上同页 2,979,497 B / 70 请求 / 54 个字体请求 2,820,852 B）。
+Release notes for each published version of Shadow Snap (影瞬), a tool that turns a movie still and lines of dialogue into a cinematic subtitle long image.
 
 ---
 
@@ -111,7 +105,6 @@
 - Reject missing assets, redirects, incorrect MIME types and byte mismatches before promotion; report the full production commit SHA.
 - Synchronize softwareVersion with package.json through static generation. Production deployment remains controlled and separately authorized.
 
-
 ## v1.3.1 - 2026-09-21
 
 ### Fixed
@@ -122,52 +115,48 @@
 
 ## v1.3.0 - 2026-09-18
 
-> **类型**: 移动端可用性、导出链路修复与发布纪律收紧
+> **Type**: Mobile usability, export fixes and stricter release discipline
 
-### 核心变更
-- **移动端适配**：改为文档流滚动＋画布预览吸顶，调整字体/切片时实时预览常驻；底部操作坞不再被挤压成竖排文字；页脚折行完整显示；触控控件放大（滑块拇指、开关、按钮）；输入框提到 16px 规避 iOS 聚焦放大；编辑台词时预览收起，为软键盘让位。
-- **导出链路修复**：改用 Blob 编码与系统分享面板（移动端「存储图像」落盘）；不支持分享文件的内核（夸克、UC）与微信内置浏览器改用长按保存浮层，微信下预览改内联图片以支持长按存图；新增画布面积上限保护（触屏 12M 像素，超出等比缩小并提示实际导出尺寸）与 4 秒编码超时兜底。
-- **界面一致性**：修复 i18n 覆盖导致导出/清空按钮图标消失的缺陷；补齐英文界面残留中文（含 title / aria-label / alt）。
-- **安全加固**：`.vercelignore` 改为通配（`.env*`、`.release-state`、`.DS_Store`），上传增加 30MB 体积上限，清理两个冗余公开文件。
-- **发布纪律**：`deploy-production.sh` 新增硬门禁（工作区干净 / 只允许 `production` 分支 / `HEAD` 与 `origin/production` 一致，无绕过开关）；`promote` 前后逐字节比对线上内容与本次提交；门禁脚本纳入 `config/controller-files.sha256` 完整性校验；控制器的 Stage 同步改为平台侧远程构建（原先的 `--prebuilt` 会让经控制器发布的部署丢失 `/_vercel/*` 分析路由），合约测试新增"不得出现 `--prebuilt`"断言防回退。发布当天还修复了 promote 未切换域名的静默失败——`Auto-assign Custom Production Domains` 关闭时，对 preview 部署 promote 只会另建一个不带域名的新 production 部署、线上内容原地不动（是逐字节比对把它拦下的），第 5 步因此改为 `vercel deploy --prod --skip-domain`。
+### Key changes
 
----
+- **Mobile layout**: the page now scrolls as a normal document and the canvas preview sticks to the top, so the live preview stays in view while you adjust fonts or strips. The bottom action dock no longer collapses into vertical text, the footer wraps in full, touch controls are larger (slider thumbs, switches, buttons), inputs use 16px text to avoid iOS focus zoom, and the preview collapses while you edit dialogue to make room for the on-screen keyboard.
+- **Export fixes**: export now encodes a Blob and opens the system share sheet ("Save Image" on mobile saves it to the device). Engines that cannot share files (Quark, UC) and the WeChat in-app browser use a long-press save overlay instead; in WeChat the preview is an inline image so that long-press can save it. Added a canvas area cap (12 megapixels on touch devices; larger images are scaled down evenly and the actual export size is shown) and a 4-second encoding timeout fallback.
+- **Interface consistency**: fixed an i18n overwrite that removed the icons from the Export and Clear buttons, and translated the Chinese text left in the English interface (including title, aria-label and alt).
+- **Security hardening**: `.vercelignore` now uses patterns (`.env*`, `.release-state`, `.DS_Store`), uploads are capped at 30 MB, and two redundant public files were removed.
+- **Release discipline**: `deploy-production.sh` gained hard gates (clean worktree, `production` branch only, `HEAD` equal to `origin/production`, with no bypass switch). Live content is compared byte for byte with the commit before and after `promote`. The gate scripts joined the `config/controller-files.sha256` integrity check. The controller's Stage sync switched to a remote build on the platform (the previous `--prebuilt` made deployments released through the controller lose the `/_vercel/*` analytics routes), and a contract test now asserts that `--prebuilt` does not appear. On release day a silent promote failure was also fixed: with `Auto-assign Custom Production Domains` turned off, promoting a preview deployment only creates a new production deployment without the domains, and the live content does not change (the byte-for-byte comparison caught it). Step 5 therefore changed to `vercel deploy --prod --skip-domain`.
 
 ## v1.2.0 - 2026-09-17
 
-> **类型**: 访问分析接入（Vercel Web Analytics）
+> **Type**: Visit analytics (Vercel Web Analytics)
 
-### 核心变更
-- **Web Analytics 接入**：采用 Vercel 官方推荐的自托管路由 `/_vercel/insights/script.js`，脚本与上报（`/_vercel/insights/view`）全部同源，**不引入任何第三方脚本域、无需放宽 CSP**（script-src / connect-src 保持 `'self'`）。
-- **静态门禁同步**：校验器放行平台路由 `_vercel/*` 并新增 analytics 标签锁定；SEO 回归测试与仓库配置测试同步更新。
-- **说明（2026-09-18 更新）**：生产发布已切换为 Vercel 侧**远程构建**（`--prebuilt` 流程不会获得平台注入路由），平台原生 `/_vercel/insights/*` 已验证可用；数据计数以后台面板为准（聚合有延迟，且自动化流量可能被过滤）。
+### Key changes
 
----
+- **Web Analytics**: uses Vercel's recommended same-origin route `/_vercel/insights/script.js`. The script and its reports (`/_vercel/insights/view`) stay on the same origin, so **no third-party script domain is added and the CSP is not relaxed** (script-src and connect-src stay `'self'`).
+- **Static gates**: the validator allows the platform route `_vercel/*` and locks the analytics tag; the SEO regression tests and repository configuration tests were updated to match.
+- **Note (updated 2026-09-18)**: production releases now use a **remote build** on Vercel (the `--prebuilt` flow does not get the platform-injected routes), and the platform's native `/_vercel/insights/*` was verified to work. The dashboard is the source of truth for counts (aggregation is delayed, and automated traffic may be filtered out).
 
 ## v1.1.9 - 2026-09-17
 
-> **类型**: 字幕描边伪影修复与站点发布面收敛
+> **Type**: Subtitle outline artifact fix and a smaller published surface
 
-### 核心变更
-- **字幕描边伪影修复**：描边改用环绕偏移填充实现，彻底消除 `strokeText` 在中文字形尖锐收笔处甩出的细刺伪影（画布预览与导出长图同步生效）。
-- **发布面收敛**：新增 `.vercelignore` 与 404 路由，仓库内部文件（发布脚本、测试、配置、文档、收款码素材）不再随站点对外公开。
-- **安全响应头补强**：新增 `Content-Security-Policy`（放行 Google Fonts 与本地图片管线），并由静态校验器与回归测试锁定。
+### Key changes
 
----
+- **Outline artifact fix**: the outline is now drawn by filling offset copies of the text around it. This removes the thin spikes that `strokeText` left at the sharp stroke ends of Chinese glyphs, in both the canvas preview and the exported image.
+- **Smaller published surface**: added `.vercelignore` and a 404 route, so internal repository files (release scripts, tests, configuration, docs and payment QR code images) are no longer published with the site.
+- **Security headers**: added a `Content-Security-Policy` (allowing Google Fonts and the local image pipeline), locked by the static validator and regression tests.
 
 ## v1.1.8 - 2026-09-17
 
-> **类型**: 院线级工作台重构、无障碍与取景框体验治理、AITDK 零缺陷与品牌页脚对齐
+> **Type**: Studio redesign, accessibility and viewfinder fixes, AITDK zero-defect audit and brand footer alignment
 
-### 核心变更
-- **工作台架构升级**：采用 65% 胶片画布舞台 + 35% 检查器分段控制台（台词脚本、字体质感、画幅水印），构建 Obsidian Noir 沉浸式暗黑美学。
-- **视觉去模板化**：彻底移除所有 Emoji 符号，全面引入专业精细 SVG 图标与电影经典对白灵感（少年派、星际穿越、花样年华、楚门的世界）。
-- **取景框体验修复**：重构未载入图片时的独立 16:9 胶片取景框，彻底消除 Dummy Canvas 导致的高度截断与文案遮挡缺陷。
-- **WCAG AA/AAA 无障碍升级**：全面提高全站所有文本、标签、选项卡与数值的对比度（最高达 18:1），杜绝暗灰低对比度文字。
-- **AITDK 零缺陷与双 Schema**：通过无障碍 `.sr-only` CSS 将 SEO/GEO 长文与 FAQ 结构化收拢，同时兼容 Release Controller 严格锁定的 WebApplication 合约与全域 `@graph` 伴生数据。
-- **品牌矩阵与页脚对齐**：统一接入 Shadow Lab 官方纸白/琥珀双环 Logo 与产品介绍页入口，精简移除多余赞赏与外链，修正邮件反馈主题错别字。
+### Key changes
 
----
+- **Studio layout**: a 65% film canvas stage and a 35% inspector split into sections (Script, Type and texture, Frame and watermark), in a dark "Obsidian Noir" style.
+- **Less template-like visuals**: removed all emoji and added detailed SVG icons and classic movie lines for inspiration (Life of Pi, Interstellar, In the Mood for Love, The Truman Show).
+- **Viewfinder fix**: rebuilt the standalone 16:9 film viewfinder shown before an image is loaded, removing the height truncation and covered text caused by the dummy canvas.
+- **WCAG AA/AAA accessibility**: raised the contrast of all text, labels, tabs and values across the site (up to 18:1) and removed low-contrast dark-gray text.
+- **AITDK zero defects and dual schema**: moved the SEO/GEO long-form copy and the FAQ into accessible `.sr-only` CSS, while keeping the WebApplication contract locked by the Release Controller and the site-wide `@graph` companion data.
+- **Brand line and footer**: added the official Shadow Lab paper-white and amber double-ring logo and a link to the product page, removed the extra tipping and external links, and fixed a typo in the feedback email subject.
 
 ## v1.1.7 - 2026-09-05
 
@@ -176,67 +165,62 @@
 
 ## v1.1.6 - 2026-09-05
 
-> **类型**: 品牌实体关系与安全响应头增强
+> **Type**: Brand entity relationships and stronger security headers
 
-### 核心变更
-- **可见语义**：主标题完整显示“影瞬 Shadow Snap”。
-- **实体关系**：WebApplication JSON-LD 通过稳定 `@id` 关联 Shadow Nexus Organization。
-- **安全响应头**：增加 `nosniff`、同源嵌入与 referrer policy，并纳入正式静态校验器。
+### Key changes
 
----
+- **Visible naming**: the main title shows the full name "影瞬 Shadow Snap".
+- **Entity relationships**: the WebApplication JSON-LD links to the Shadow Nexus Organization through a stable `@id`.
+- **Security headers**: added `nosniff`, same-origin framing and a referrer policy, and added them to the static validator.
 
 ## v1.1.5 - 2026-09-03
 
-> **类型**: SEO/GEO 可发现性基础设施与受控发布对齐
+> **Type**: SEO/GEO discoverability basics and controlled release alignment
 
-### 核心变更
-- **索引基础设施**：补充中文/英文标题、描述、canonical、Open Graph、Twitter 与 WebApplication JSON-LD。
-- **爬虫入口**：新增 canonical `robots.txt` 与单 URL `sitemap.xml`。
-- **发布验收对齐**：更新 Release Controller 的生产验收标题，并以回归测试锁定 SEO 合约。
+### Key changes
 
----
+- **Indexing basics**: added Chinese and English titles, descriptions, canonical, Open Graph, Twitter and WebApplication JSON-LD.
+- **Crawler entry points**: added a canonical `robots.txt` and a single-URL `sitemap.xml`.
+- **Release acceptance**: updated the Release Controller's production acceptance title and locked the SEO contract with regression tests.
 
 ## v1.1.4 - 2026-08-30
 
-> **类型**: 发布治理与部署元数据加固
+> **Type**: Release governance and deployment metadata hardening
 
-### 核心变更
-- **元数据校验强化**：完善部署事实与受控 Promote 证据链比对，支持快照式验签。
-- **发布状态收敛**：更新 `.release-state/v1.1.4` 生产状态，确保不可变归档。
+### Key changes
 
----
+- **Metadata checks**: improved the comparison of deployment facts with the controlled Promote evidence chain, with snapshot-style signature verification.
+- **Release state**: updated the `.release-state/v1.1.4` production state so that the archive cannot change.
 
 ## v1.1.3 - 2026-08-30
 
-> **类型**: 意图门禁基线复核
+> **Type**: Intent gate baseline re-check
 
-### 核心变更
-- **Pre-intent 证据链验证**：在生成阶段重检前置证据哈希，杜绝未经验证的脏构建进入待发布队列。
+### Key changes
 
----
+- **Pre-intent evidence check**: the hashes of earlier evidence are checked again at generation time, so an unverified dirty build cannot enter the release queue.
 
 ## v1.1.2 - 2026-08-30
 
-> **类型**: 既有生产基线采纳 (Adopt Intent)
+> **Type**: Adopting the existing production baseline (Adopt Intent)
 
-### 核心变更
-- **支持既有基线纳入**：使受控发布流无缝对接历史已在生产环境稳定运行的静态 HTML/Canvas 部署。
+### Key changes
 
----
+- **Existing baseline adoption**: the controlled release flow can take over the static HTML/Canvas deployment that was already running reliably in production.
 
 ## v1.1.1 - 2026-08-30
 
-> **类型**: 规范化 Manifest 摘要
+> **Type**: Normalized manifest digest
 
-### 核心变更
-- **文件指纹标准化**：规范化发布产物清单（Manifest）SHA256 计算逻辑，统一跨环境签名。
+### Key changes
 
----
+- **File fingerprints**: normalized how the SHA256 of the release artifact manifest is calculated, so signatures match across environments.
 
 ## v1.1.0 - 2026-08-30
 
-> **类型**: 生产受控发布工作流与安全门禁
+> **Type**: Controlled production release workflow and security gates
 
-### 核心变更
-- **接入 Release Controller**：引入受控发布流，拦截未登记 release 配置的直接 Tag 推送与旁路构建。
-- **品牌矩阵与链接修正**：全站更新为「影瞬 Shadow Snap」，对齐单行极简 Footer 与 `snap.shadow.wang` 独立域名。
+### Key changes
+
+- **Release Controller**: added a controlled release flow that blocks direct tag pushes without a registered release configuration, and builds that bypass it.
+- **Brand and links**: renamed the site to "影瞬 Shadow Snap" everywhere, and aligned the single-line minimal footer and the standalone `snap.shadow.wang` domain.
