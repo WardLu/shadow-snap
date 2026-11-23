@@ -1,27 +1,4 @@
 #!/bin/sh
-# ---- remote CI worker (advisory) -------------------------------------------------
-# Queue the pushed commit on the self-hosted worker in the background: it never blocks or
-# fails the push, DEVKIT_CI_SKIP_HOOK=1 turns it off, and nothing happens when `devkit` is
-# not on PATH. The ref list arrives on stdin, so capture it once and hand the same bytes to
-# the checks below.
-_refs_file="$(mktemp)"
-trap 'rm -f "$_refs_file"' EXIT INT TERM
-cat > "$_refs_file"
-if [ "${DEVKIT_CI_SKIP_HOOK:-0}" != 1 ] && command -v devkit >/dev/null 2>&1; then
-  while read -r _local_ref _local_sha _remote_ref _remote_sha; do
-    case "$_remote_ref" in
-      refs/heads/main|refs/heads/production)
-        _sha="$(git rev-parse "$_local_sha^{commit}" 2>/dev/null)" || continue
-        _log="$(git rev-parse --git-path devkit-ci-enqueue.log 2>/dev/null || echo /tmp/devkit-ci-enqueue.log)"
-        ( nohup devkit ci enqueue WardLu/shadow-snap --sha "$_sha" --checks gate >>"$_log" 2>&1 & ) >/dev/null 2>&1 || true
-        printf 'pre-push: queued %.7s on the remote CI worker (log: %s)\n' "$_sha" "$_log" >&2
-        ;;
-    esac
-  done < "$_refs_file"
-fi
-exec 0<"$_refs_file"
-# ---- end remote CI worker --------------------------------------------------------
-
 # Advisory: `git push --no-verify` bypasses it; the authoritative gate is the release script.
 # - Tags must look like vX.Y.Z.
 # - Pushing the release branch requires a valid local CI record for the pushed commit, checked by
@@ -46,6 +23,51 @@ branch=$(node -e '
   console.log(value);
 ' "$root") || { echo "pre-push: config/release-production.json has no valid productionBranch" >&2; exit 1; }
 
+# Optional: hand the pushed production-branch commit to the remote CI worker. The worker runs the same local gate
+# on the VPS and notifies through Feishu, so a push does not have to wait for a local run. It never blocks the push,
+# and DEVKIT_CI_SKIP_HOOK=1 turns it off for one push. `git config devkit.remoteCi false` turns it off for this clone,
+# e.g. in a public repository whose hosted CI already runs the same gate (no billing stop to fall back from).
+remote_ci() {
+  [ "${DEVKIT_CI_SKIP_HOOK:-0}" = 1 ] && return 0
+  # Presence by exit status: an empty value (`remoteCi =`) is a valid false in git.
+  if git config --get devkit.remoteCi >/dev/null 2>&1; then
+    case "$(git config --bool --get devkit.remoteCi 2>/dev/null || true)" in
+      false) return 0 ;;
+      true) ;;
+      *) echo "pre-push: devkit.remoteCi is not a boolean; queueing as usual (set it to false to turn this off)" >&2 ;;
+    esac
+  fi
+  command -v devkit >/dev/null 2>&1 || return 0
+  sha=$1
+  url=$(git remote get-url origin 2>/dev/null) || return 0
+  repo=$(node -e '
+    const url = process.argv[1].replace(/\.git$/, "");
+    const match = url.match(/[:/]([^/:]+\/[^/]+)$/);
+    if (match) process.stdout.write(match[1]);
+  ' "$url")
+  case "$repo" in */*) ;; *) return 0 ;; esac
+  log="${TMPDIR:-/tmp}/devkit-ci-enqueue.log"
+  # Ask for the FSM check only when the repository has one: a repository without formal specs would otherwise queue
+  # a job that fails on a missing npm script. `gate` covers everything else.
+  # Read the package.json of the commit being pushed, not the working tree: a push can carry another commit, and a
+  # dirty checkout must not decide what that commit needs.
+  extra=$(git show "$sha:package.json" 2>/dev/null | node -e '
+    let text = "";
+    process.stdin.on("data", (chunk) => { text += chunk; });
+    process.stdin.on("end", () => {
+      try {
+        const scripts = JSON.parse(text).scripts ?? {};
+        if (typeof scripts["verify:fsm"] === "string") process.stdout.write(",fsm");
+      } catch { /* no package.json or no scripts: gate only */ }
+    });
+  ' 2>/dev/null || true)
+  checks="gate$extra"
+  # --sha takes the exact commit being pushed: the second positional argument is a branch name, not a commit.
+  ( nohup devkit ci enqueue "$repo" --sha "$sha" --checks "$checks" >>"$log" 2>&1 & ) >/dev/null 2>&1 || true
+  echo "pre-push: queued $repo@${sha%???????} on the remote CI worker with --checks $checks (log: $log)" >&2
+  return 0
+}
+
 zero=0000000000000000000000000000000000000000
 status=0
 while read -r local_ref local_sha remote_ref remote_sha; do
@@ -53,8 +75,19 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
     refs/tags/*)
       tag=${remote_ref#refs/tags/}
-      if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-        echo "pre-push: tag '$tag' does not match vX.Y.Z" >&2
+      tag_sha=$(git rev-parse "$local_sha^{commit}") || tag_sha=""
+      # The repository's release config may allow pre-release tags (v1.2.3-rc.1), so use its tagPattern when
+      # present. Read it from the tagged commit, not from whichever branch the checkout happens to be on.
+      if ! git show "$tag_sha:config/release-production.json" 2>/dev/null | node -e '
+        let text = "";
+        process.stdin.on("data", (chunk) => { text += chunk; });
+        process.stdin.on("end", () => {
+          let pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$";
+          try { pattern = JSON.parse(text).tagPattern ?? pattern; } catch { /* default */ }
+          process.exit(new RegExp(pattern).test(process.argv[1]) ? 0 : 1);
+        });
+      ' "$tag"; then
+        echo "pre-push: tag '$tag' does not match the repository tag pattern" >&2
         status=1
       fi
       ;;
@@ -68,6 +101,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         echo "Run 'node scripts/ci/local-ci.mjs run' on a clean worktree first (it records the credential)." >&2
         status=1
       fi
+      remote_ci "$sha"
       ;;
   esac
 done

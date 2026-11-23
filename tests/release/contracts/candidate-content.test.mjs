@@ -11,7 +11,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const source = readFileSync(path.join(repoRoot, 'scripts/release/deploy-production.sh'), 'utf8');
 const functions = readFileSync(path.join(repoRoot, 'scripts/release/site-content-functions.sh'), 'utf8');
 const precheck = source.slice(source.indexOf('echo "👉 部署预检:'), source.indexOf('# ------------------------------------------------------------------------------', source.indexOf('echo "👉 部署预检:')));
-const check = functions + '\n' + precheck;
+const check = 'fail() { echo "❌ $*" >&2; exit 1; }\n' + functions + '\n' + precheck;
 const manifest = await siteArtifactManifest(repoRoot);
 const manifestTsv = manifest.map(({ file, route, mediaTypes }) => [file, route, mediaTypes.join(',')].join('\t')).join('\n');
 

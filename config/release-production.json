@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "repository": "WardLu/shadow-snap",
   "productionBranch": "production",
+  "matrixBroadcast": true,
   "vercel": {
     "teamId": "team_yq83S2zZ3jAfc1JBRuU31M1I",
     "projectId": "prj_xaFMwRtRpFr9K6tWtcnaDlZax8Ie",

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Advisory: refuses to commit credential files. `git commit --no-verify` bypasses it;
-# the authoritative gates are the release script and review.
+# the authoritative gates are the release script and CI.
 # Activate with: git config core.hooksPath .githooks
 set -eu
 
@@ -25,4 +25,16 @@ if [ -n "$blocked" ]; then
   printf '%s\n' "$blocked" | sed 's/^/  /' >&2
   echo "Unstage them (git restore --staged <file>) and keep secrets out of the repository." >&2
   exit 1
+fi
+
+# Secrets inside ordinary files: a commit is the last point where removal leaves no history.
+# The full-history scan in the local equivalent gate (config/local-ci.json) stays authoritative.
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --staged --no-banner --redact --verbose --log-level warn .; then
+    echo "pre-commit: gitleaks found secrets in staged changes (values redacted above)." >&2
+    echo "Move them to an ignored .env*.local file and reference the variable name instead." >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: gitleaks not installed, staged secret scan skipped (brew install gitleaks)." >&2
 fi
