@@ -91,9 +91,9 @@ npm run ci:check         # 运行完整的本地检查清单，但不写入记�
 
 ## 许可证
 
-代码以 [MIT 许可证](LICENSE) 发布。`public/fonts/` 里的字体和 `public/fonts-subset/` 里的中文子集字体采用 SIL Open Font License 1.1；许可证原文在 `public/fonts/` 下的各个字体目录里，以及 `public/fonts-subset/LICENSE`。
-
-MIT 许可证适用于本软件及其文档，但有一个例外：“影瞬”“Shadow Snap”的名称和 logo，以及 `public/brand_assets/` 里的品牌图片（含公众号二维码），不在 MIT 授权范围内。未经许可，请勿用于你自己的产品。
+- **代码和文档**：以 [MIT 许可证](LICENSE) 发布。
+- **字体**：`public/fonts/` 里的字体和 `public/fonts-subset/` 里的中文子集字体采用 SIL Open Font License 1.1；许可证原文在 `public/fonts/` 下的各个字体目录里，以及 `public/fonts-subset/LICENSE`。
+- **品牌素材**：不在 MIT 授权范围内。“影瞬”“Shadow Snap”的名称和 logo，以及 `public/brand_assets/` 里的图片（含公众号二维码），未经许可不得用于你自己的产品。
 
 ## 联系
 

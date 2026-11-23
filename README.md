@@ -91,9 +91,9 @@ Production releases are made by the maintainer with a single release script. See
 
 ## License
 
-The code is released under the [MIT License](LICENSE). The bundled fonts in `public/fonts/` and the Chinese subset in `public/fonts-subset/` are under the SIL Open Font License 1.1; the license text is in each font folder under `public/fonts/` and in `public/fonts-subset/LICENSE`.
-
-The MIT License applies to the software and its documentation, with one exception: it does not cover the names 影瞬 and Shadow Snap, the logos, or the brand images in `public/brand_assets/` (including the WeChat Official Account QR code). Please do not use them in your own product without permission.
+- **Code and documentation**: released under the [MIT License](LICENSE).
+- **Fonts**: the bundled fonts in `public/fonts/` and the Chinese subset in `public/fonts-subset/` are under the SIL Open Font License 1.1. The license text is in each font folder under `public/fonts/` and in `public/fonts-subset/LICENSE`.
+- **Brand assets**: not covered by the MIT License. The names 影瞬 and Shadow Snap, the logos, and the images in `public/brand_assets/` (including the WeChat Official Account QR code) may not be used in your own product without permission.
 
 ## Contact
 
