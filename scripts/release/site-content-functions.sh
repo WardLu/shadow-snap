@@ -1,26 +1,33 @@
 #!/usr/bin/env bash
 # Shared read-only verification functions. Caller supplies the validated manifest.
-# fetch_code <command...>：执行一次 HTTP 请求命令，输出状态码并返回命令的退出码。
-# 只在瞬时失败时重试，最多 TRANSPORT_ATTEMPTS 次：没有 HTTP 响应（curl 输出 000：TLS 握手断开、DNS、
-# 连接超时等），或 HTTP 408/429/500/502/503/504（与 curl --retry 认定的瞬时状态一致，promote 后也可能短暂出现）。
-# 其他 HTTP 状态（如 404）立即返回，由调用方判定。命令在启动 curl 前失败时输出为空，同样不重试。
+# fetch_code <body> <headers> <transport> <command...>：执行只读 HTTP 请求命令并输出最后一次的状态码（同 shadow-devkit
+# 模板）。是否成功、重试或失败由同目录的 transport-policy.mjs 按命令退出码、HTTP 状态和最终响应的 Retry-After 判定：
+# 只有命令退出 0 且 HTTP 200 才成功（返回 0）；HTTP 200 但 curl 中途失败（exit 18/28/56）、没有 HTTP 响应（000）和
+# HTTP 408/429/500/502/503/504 有界重试，最多 TRANSPORT_ATTEMPTS 次，按 Retry-After 或指数退避等待；其他状态（如
+# 404）、命令在发出请求前失败（输出不是三位状态码）和重试耗尽都返回 1。每次请求前删除上一次的正文与响应头，
+# 残留内容不会被当成本次响应。只用于读取，不用于 deploy、promote。
 TRANSPORT_ATTEMPTS=3
 fetch_code() {
-  local attempt=1 code status
+  local body="$1" headers="$2" transport="$3" attempt=1 code status decision action wait_ms
+  shift 3
   while :; do
+    rm -f "$body" "$headers" || { echo "❌ 无法清理上次响应文件" >&2; return 1; }
     status=0
     code="$("$@")" || status=$?
-    case "$code" in
-      000|408|429|500|502|503|504) ;;
-      *) printf '%s' "$code"; return "$status" ;;
+    # Fast path for the policy's own first rule (exit 0 and HTTP 200 is success): a release reads every manifest
+    # entry three times, and starting node for each success would add seconds without changing any decision.
+    if [ "$status" = 0 ] && [ "$code" = 200 ]; then printf '%s' "$code"; return 0; fi
+    decision="$(node "$ROOT_DIR/scripts/release/transport-policy.mjs" "$status" "$code" "$attempt" "$headers" "$transport")" || return 1
+    action="${decision%% *}"
+    wait_ms="${decision#* }"
+    case "$action" in
+      success) printf '%s' "$code"; return 0 ;;
+      fail) printf '%s' "$code"; return 1 ;;
+      retry) echo "⚠️  请求未完成（HTTP ${code:-无}，exit ${status}；第 ${attempt}/${TRANSPORT_ATTEMPTS} 次），${wait_ms} ms 后重试" >&2 ;;
+      *) return 1 ;;
     esac
-    if [ "$attempt" -ge "$TRANSPORT_ATTEMPTS" ]; then
-      printf '%s' "$code"
-      return "$status"
-    fi
-    echo "⚠️  请求返回 HTTP ${code}（第 ${attempt}/${TRANSPORT_ATTEMPTS} 次），1 秒后重试" >&2
+    sleep "$(awk -v ms="$wait_ms" 'BEGIN { printf "%.3f", ms / 1000 }')"
     attempt=$((attempt + 1))
-    sleep 1
   done
 }
 
@@ -42,15 +49,15 @@ verify_against_commit() {
     body="$(mktemp)"
     headers="$(mktemp)"
     if [ "$access" = "deployment" ]; then
-      if ! code="$(PATH="$ROOT_DIR/scripts/release/http-bin:$PATH" fetch_code vercel curl "$request_path" --deployment "$base_url" --scope "$TEAM_ID" --yes -- --request GET --no-location --max-redirs 0 --silent --show-error --max-time 30 -D "$headers" -o "$body" -w "%{http_code}")"; then
+      if ! code="$(PATH="$ROOT_DIR/scripts/release/http-bin:$PATH" fetch_code "$body" "$headers" vercel vercel curl "$request_path" --deployment "$base_url" --scope "$TEAM_ID" --yes -- --request GET --no-location --max-redirs 0 --silent --show-error --max-time 30 -D "$headers" -o "$body" -w "%{http_code}")"; then
         rm -f "$body" "$headers"
-        echo "❌ ${label}: ${request_path} 候选读取命令失败" >&2
+        echo "❌ ${label}: ${request_path} 候选读取失败（HTTP ${code:-无}）" >&2
         return 1
       fi
     else
-      if ! code="$(fetch_code curl --disable --request GET --no-location --max-redirs 0 --silent --show-error --max-time 30 -D "$headers" -o "$body" -w "%{http_code}" "${base_url}${request_path}")"; then
+      if ! code="$(fetch_code "$body" "$headers" curl curl --disable --request GET --no-location --max-redirs 0 --silent --show-error --max-time 30 -D "$headers" -o "$body" -w "%{http_code}" "${base_url}${request_path}")"; then
         rm -f "$body" "$headers"
-        echo "❌ ${label}: ${request_path} 生产读取命令失败" >&2
+        echo "❌ ${label}: ${base_url}${request_path} 读取失败（HTTP ${code:-无}）" >&2
         return 1
       fi
     fi

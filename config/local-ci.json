@@ -1,7 +1,7 @@
 {
   "include": ["admissionCommands"],
   "checks": [
-    { "name": "secrets-scan", "argv": ["gitleaks", "git", "--no-banner", "--redact", "."] },
+    { "name": "secrets-scan", "argv": ["gitleaks", "git", "--no-banner", "--redact", "--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge", "."] },
     { "name": "seo-and-ci-tests", "argv": ["node", "--test", "tests/seo/*.test.mjs", "tests/ci/*.test.mjs"] }
   ],
   "env": {},

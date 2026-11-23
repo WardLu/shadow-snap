@@ -49,6 +49,7 @@ export function validateReleaseConfig(config) {
   if (!Array.isArray(commands) || !commands.every((argv) => Array.isArray(argv) && argv.length > 0 && argv.every(isText))) {
     fail('release_config_admission_invalid');
   }
+  if (config.matrixBroadcast !== undefined && typeof config.matrixBroadcast !== 'boolean') fail('release_config_matrix_broadcast_invalid');
   return config;
 }
 
@@ -71,6 +72,7 @@ const GETTERS = {
   'acceptance.bodyIncludes': (config) => config.acceptance.bodyIncludes ?? '',
   'acceptance.requiredHeaders': (config) => (config.acceptance.requiredHeaders ?? []).join('\n'),
   'acceptance.maxSeconds': (config) => String(config.acceptance.maxSeconds ?? 30),
+  matrixBroadcast: (config) => String(config.matrixBroadcast === true),
 };
 
 export function readValue(config, key) {
