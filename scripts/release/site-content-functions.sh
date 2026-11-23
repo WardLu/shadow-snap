@@ -14,6 +14,9 @@ fetch_code() {
     rm -f "$body" "$headers" || { echo "❌ 无法清理上次响应文件" >&2; return 1; }
     status=0
     code="$("$@")" || status=$?
+    # Fast path for the policy's own first rule (exit 0 and HTTP 200 is success): a release reads every manifest
+    # entry three times, and starting node for each success would add seconds without changing any decision.
+    if [ "$status" = 0 ] && [ "$code" = 200 ]; then printf '%s' "$code"; return 0; fi
     decision="$(node "$ROOT_DIR/scripts/release/transport-policy.mjs" "$status" "$code" "$attempt" "$headers" "$transport")" || return 1
     action="${decision%% *}"
     wait_ms="${decision#* }"

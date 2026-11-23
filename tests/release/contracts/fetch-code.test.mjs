@@ -22,7 +22,7 @@ function fetchCode(codes) {
     const program = `ROOT_DIR='${ROOT}'
 ${helper}
 echo 0 > '${counter}'
-fake() { n=$(( $(cat '${counter}') + 1 )); echo "$n" > '${counter}'; set -- ${codes.join(' ')}; eval "c=\\\${$n:-200}"; code="\${c%%:*}"; exit_code=0; case "$c" in *:*) exit_code="\${c#*:}" ;; 000) exit_code=7 ;; esac; printf '%s' "$code"; return "$exit_code"; }
+fake() { n=$(( $(cat '${counter}') + 1 )); echo "$n" > '${counter}'; set -- ${codes.join(' ')}; eval "c=\\\${$n:-200}"; code="\${c%%:*}"; exit_code=0; case "$c" in *:*) exit_code="\${c#*:}" ;; 000) exit_code=7 ;; esac; printf 'HTTP/1.1 %s\r\nRetry-After: 0\r\n\r\n' "$code" > '${dir}/headers'; printf '%s' "$code"; return "$exit_code"; }
 printf '%s' "$(fetch_code '${dir}/body' '${dir}/headers' curl fake)"`;
     const result = spawnSync('/bin/bash', ['-c', program], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin` } });
     assert.equal(result.status, 0, result.stderr);
