@@ -44,7 +44,12 @@ npm run release:production   # = bash scripts/release/deploy-production.sh
 
 ### 限制
 
-仓库公开。GitHub ruleset 禁止删除和强推 `main`、`production`，`main` 必须经 PR 合并；但 GitHub 服务端不校验本地 CI 记录，有写权限的人仍可以快进更新 `production`。`pre-push` 只是本地钩子，`--no-verify`、其他主机和 GitHub UI 可绕过它；不可绕过的是部署侧：发布脚本只部署已推送到 `production` 的干净提交，并在部署前复跑准入命令。Tag、Release、合并 PR、推进 `production` 与部署仍各自需要明确授权。
+仓库公开。GitHub ruleset 禁止删除和强推 `main`、`production`，`main` 必须经 PR 合并，并且必须通过托管 CI；只有管理员能新建分支和 tag。但 GitHub 服务端不校验本地 CI 记录，有写权限的人仍可以快进更新 `production`。
+
+托管 CI（`.github/workflows/ci.yml` 的 `gate` 任务）在目标为 `main` 的 PR，以及 `main`、`production` 的推送上运行 `npm run ci:check`，与本地 `npm run ci` 是同一份清单，gitleaks 锁定为 8.30.1。它只是额外的一道检查，不替代本地门禁：
+- `production` 不设必需检查。workflow 只在 `production` 更新**之后**才运行，没法在推送前给出结果；推送 `production` 仍然要有本地 CI 记录，发布脚本也照常复跑准入命令。
+- 外部 PR 的检查结果可信度有限：PR 可以同时改掉检查本身，所以“检查通过”只说明这个 PR 自己定义的检查通过了。批准外部贡献者的 workflow 运行之前，以及合并之前，先读该 head SHA 的完整 diff。下面这些路径决定了检查实际执行什么，有改动就逐行审过：`.github/workflows/`、`package.json`、`package-lock.json`、`.nvmrc`、`scripts/`、`config/`、`tests/`、`.githooks/`、`.gitleaks.toml`、`.gitleaksignore`，以及检查会执行或导入的任何代码（如 `seo-content.mjs`、`translations.mjs`）。合并时锁定已审过的 head SHA。
+- workflow 只用 `pull_request` 触发（不用 `pull_request_target`），令牌只读，仓库不配置任何 secret，第三方 action 钉到完整的提交 SHA。`pre-push` 只是本地钩子，`--no-verify`、其他主机和 GitHub UI 可绕过它；不可绕过的是部署侧：发布脚本只部署已推送到 `production` 的干净提交，并在部署前复跑准入命令。Tag、Release、合并 PR、推进 `production` 与部署仍各自需要明确授权。
 
 ### Vercel 项目身份校验
 

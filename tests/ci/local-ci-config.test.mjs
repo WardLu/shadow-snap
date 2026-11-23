@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { validateChecklist } from '../../scripts/ci/local-ci.mjs';
 
-// The repository has no hosted CI. The release script re-runs config/release-production.json
+// Hosted CI (.github/workflows/ci.yml) runs this same list with `npm run ci:check`. The release script re-runs config/release-production.json
 // admissionCommands before deploying, and `npm run ci` must cover at least the same commands, in the
 // same order, by including them rather than copying them.
 const read = file => readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
