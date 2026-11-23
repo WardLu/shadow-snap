@@ -56,6 +56,8 @@ echo "✅ Node 运行时: $(node -v)"
 echo "👉 [2/8] 读取生产发布参数..."
 CONFIG="scripts/release/release-config.mjs"
 node "$CONFIG" check
+# fetch_code decides a plain success in the shell, so a missing policy would otherwise only surface on a failure.
+[ -f scripts/release/transport-policy.mjs ] || fail "缺少 scripts/release/transport-policy.mjs，拒绝发布"
 config_get() { node "$CONFIG" get "$1"; }
 
 EXPECTED_BRANCH="$(config_get productionBranch)"
@@ -250,7 +252,7 @@ echo "✅ Promote 完成"
 # 8. 逐域名验收：逐字节比对派生清单，再验收端点（直接 200、响应头、正文片段）
 # ------------------------------------------------------------------------------
 echo "👉 [8/8] 生产域名验收..."
-ROLLBACK_HINT="已 promote 到 ${DEPLOY_URL}。如需回滚：在 Vercel 中找到上一个生产部署，执行 vercel promote <上一个部署 URL> --scope ${TEAM_ID}；或在 ${EXPECTED_BRANCH} 上提交 git revert、运行 npm run ci 并推送后重新运行本脚本（不得强推改写 ${EXPECTED_BRANCH}）。"
+ROLLBACK_HINT="已 promote 到 ${DEPLOY_URL}。回滚也走发布门禁：在 ${EXPECTED_BRANCH} 上提交 git revert、运行 npm run ci 并推送后重新运行本脚本（不得强推改写 ${EXPECTED_BRANCH}，也不要绕过本脚本直接调用 vercel promote）。"
 while IFS= read -r DOMAIN <&4; do
   [ -n "$DOMAIN" ] || continue
   verify_against_commit "https://${DOMAIN}" "线上比对 ${DOMAIN}" ||

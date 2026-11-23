@@ -105,7 +105,7 @@ export function validateChecklist(config, readFile = () => fail('local_ci_includ
   const nameList = (list) => Array.isArray(list) && new Set(list).size === list.length && list.every((name) => names.has(name));
   // Checks that read Git history must never be skipped on the strength of an identical tree or a docs-only diff.
   const historyChecks = resolved.filter((check) => path.basename(check.argv[0]) === 'gitleaks' ||
-    (path.basename(check.argv[0]) === 'node' && path.basename(String(check.argv[1] ?? '')) === 'gitleaks-size-guard.mjs')).map((check) => check.name);
+    (path.basename(check.argv[0]) === 'node' && ['gitleaks-size-guard.mjs', 'secrets-scan.mjs'].includes(path.basename(String(check.argv[1] ?? ''))))).map((check) => check.name);
 
   // Both options are allow-lists: a check runs unless it is named. A wrapped history scan
   // (`npm run secrets-scan`) is therefore rerun unless someone deliberately lists it.

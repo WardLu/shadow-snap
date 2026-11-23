@@ -1,13 +1,13 @@
 {
   "include": ["admissionCommands"],
   "checks": [
-    { "name": "secrets-scan", "argv": ["gitleaks", "git", "--no-banner", "--redact", "--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge", "."] },
+    { "name": "secrets-scan", "argv": ["node", "scripts/ci/secrets-scan.mjs", "git", "--no-banner", "--redact", "--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge", "."] },
     { "name": "seo-and-ci-tests", "argv": ["node", "--test", "tests/seo/*.test.mjs", "tests/ci/*.test.mjs"] }
   ],
   "env": {},
   "unverified": [
     "托管 CI（.github/workflows/ci.yml 的 gate 任务）在 GitHub 上运行同一份清单（npm run ci:check），它是 main 的必需检查；本地清单仍以 config/release-production.json 的 admissionCommands 为准，另加 SEO 与本地门禁测试",
-    "secrets-scan（gitleaks）：全历史扫描，默认规则；托管 CI 锁定为 8.30.1，本机版本不锁定",
+    "secrets-scan（gitleaks）：全历史扫描（含合并提交），默认规则，经 scripts/ci/secrets-scan.mjs 运行；托管 CI 安装 8.30.1，本机自行安装，包装脚本只接受已核实的版本（目前 8.30.1），版本不符时门禁失败",
     "本机被 gitignore 的 .env* 文件可能被测试读取；在新建 worktree 中运行可避免"
   ]
 }
