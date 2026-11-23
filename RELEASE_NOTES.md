@@ -6,6 +6,27 @@ Release notes for each published version of Shadow Snap (影瞬), a tool that tu
 
 ---
 
+## v1.5.4 - 2026-11-23
+
+### Changed
+
+- Chinese pages no longer download about 119 Noto Sans SC slices. They use a single 161,876-byte CJK subset (`public/fonts-subset/noto-sans-sc-cjk.woff2`), and `--font-ui` prefers the system's Chinese fonts. The unused Archivo Black package was removed. Measured locally on `/zh-hant/`: 406,926 B in 19 requests, of which fonts are 72,246 B (the previous live page: 2,979,497 B in 70 requests, with 2,820,852 B in 54 font requests).
+- The WebApplication JSON-LD is consolidated on every page. Added an IndexNow key file and `robots.txt` rules for Yandex (`Clean-param` for UTM parameters).
+- The Chinese social image (`og_shadow_snap.png`) no longer shows a version number, the same as the English one.
+- The source code is public again at [github.com/WardLu/shadow-snap](https://github.com/WardLu/shadow-snap). Hosted CI on GitHub Actions runs the same checks as the local gate.
+
+### Removed
+
+- The site no longer serves the Baidu, Sogou, 360 and StartupRanking verification files, or two unused brand logos (`shadow_card_logo.svg`, `shadow_portal_logo.svg`).
+
+### Fixed
+
+- Production acceptance no longer reports a response header that is present as missing. The header check piped into `grep -q`, and with `pipefail` the early exit of `grep` made the check fail.
+
+### Notes
+
+- The font, structured data and release script changes above were already live before this version without a version bump. v1.5.4 records them.
+
 ## v1.5.3 - 2026-11-07
 
 ### Changed
