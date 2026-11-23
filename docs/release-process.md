@@ -18,7 +18,7 @@ npm run release:production   # = bash scripts/release/deploy-production.sh
 
 启用钩子：`git config core.hooksPath .githooks`（`pre-commit` 拦截凭据文件，`pre-push` 校验本地 CI 记录与 tag 格式）。
 
-本地等价门禁和发布脚本基于维护者的私有工具库 shadow-devkit 的模板与标准（`docs/standards/ci-local-gate.md`，外部读者无法访问）。最近一次同步是 2026-11-23（标准 v2.8）：`scripts/ci/local-ci.mjs`、`.githooks/pre-commit`、`.githooks/pre-push`、`scripts/release/transport-policy.mjs`、`run-admission-commands.mjs`、`vercel-project-binding.mjs` 与模板逐字节一致；`deploy-production.sh`、`release-config.mjs`、`site-content-functions.sh` 按模板结构改写，保留本项目派生的逐字节验收清单。凭据为 v2，绑定提交、tree、检查清单哈希和每项检查结果；运行前后工作区都必须干净，检查只继承白名单环境变量。清单只来自已提交的 `config/local-ci.json`，用 `include: ["admissionCommands"]` 引用 `config/release-production.json`，不另抄一份；`tests/ci/local-ci-config.test.mjs` 防止清单漏掉准入命令或测试套件。`pre-push` 调用 `node scripts/ci/local-ci.mjs verify <sha>` 校验，不再自行解析记录；旧 v1 记录（`record-local-ci.mjs` 写入）不再被接受，需要重新运行 `npm run ci`。清单另含全历史 gitleaks 扫描（`secrets-scan`，默认规则，需先 `brew install gitleaks`；带 `--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge`，合并提交本身的改动也会被扫描，需要 git ≥ 2.36）；目前历史没有命中，所以没有 `.gitleaks.toml` 和 `.gitleaksignore`。以后确需放行时，按矩阵标准第 2 节同时限定路径和完整值，并复制 devkit 的 `templates/ci/gitleaks-allowlist.test.mjs` 核对边界。
+本地等价门禁和发布脚本基于维护者的私有工具库 shadow-devkit 的模板与标准（`docs/standards/ci-local-gate.md`，外部读者无法访问）。最近一次同步是 2026-11-23（标准 v2.9）：`scripts/ci/local-ci.mjs`、`scripts/ci/secrets-scan.mjs`、`.githooks/pre-commit`、`.githooks/pre-push`、`scripts/release/transport-policy.mjs`、`run-admission-commands.mjs`、`vercel-project-binding.mjs` 与模板逐字节一致；`deploy-production.sh`、`release-config.mjs`、`site-content-functions.sh` 按模板结构改写，保留本项目派生的逐字节验收清单。凭据为 v2，绑定提交、tree、检查清单哈希和每项检查结果；运行前后工作区都必须干净，检查只继承白名单环境变量。清单只来自已提交的 `config/local-ci.json`，用 `include: ["admissionCommands"]` 引用 `config/release-production.json`，不另抄一份；`tests/ci/local-ci-config.test.mjs` 防止清单漏掉准入命令或测试套件。`pre-push` 调用 `node scripts/ci/local-ci.mjs verify <sha>` 校验，不再自行解析记录；旧 v1 记录（`record-local-ci.mjs` 写入）不再被接受，需要重新运行 `npm run ci`。清单另含全历史 gitleaks 扫描（`secrets-scan`，默认规则，需先 `brew install gitleaks`）。它经 `scripts/ci/secrets-scan.mjs` 运行，带 `--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge`：合并提交本身的改动也会被扫描（需要 git ≥ 2.36）；git 读取历史出错或异常退出时，gitleaks 本身仍会退出 0，包装脚本则判扫描不完整、门禁失败；它只接受已核实的 gitleaks 版本（目前 8.30.1）。目前历史没有命中，所以没有 `.gitleaks.toml` 和 `.gitleaksignore`。以后确需放行时，按矩阵标准第 2 节同时限定路径和完整值，并复制 devkit 的 `templates/ci/gitleaks-allowlist.test.mjs` 核对边界。
 
 `deploy-production.sh` 的 8 步，任一步失败即退出 1，无绕过开关：
 
@@ -40,7 +40,7 @@ npm run release:production   # = bash scripts/release/deploy-production.sh
 - **验收清单由事实源派生**：`scripts/seo/site-artifact-manifest.mjs` 从静态校验与多语言页面生成器派生清单（各语言页 HTML、JS/CSS、导入模块、sitemap、robots、引用的本地品牌资源，以及本地样式表 `url()` 引用的字体），比对 HTTP 200、无重定向、MIME 与提交字节，不另维护白名单。
 - **网络读取只重试瞬时失败**：第 6、8 步的逐字节比对和域名验收都经过 `fetch_code`（`scripts/release/site-content-functions.sh`），由 `transport-policy.mjs` 判定：只有命令退出 0 且 HTTP 200 才算成功；没有 HTTP 响应（`000`，如 TLS 握手断开）、HTTP 200 但传输中断（curl exit 18/28/56）或 HTTP 408/429/500/502/503/504 时最多尝试 3 次，按 `Retry-After` 或指数退避等待；其他状态（如 404）、请求发出前就失败的命令和重试用完后的失败立即中止。
 - **只读复核**：`bash scripts/release/verify-site-content.sh <URL> <SHA> [public|deployment]` 对候选部署或生产域名重复同一比对，不部署、不改别名。
-- **回滚**：在 Vercel 找到上一个生产部署，执行 `vercel promote <上一个部署 URL> --scope <teamId>`；或在 `production` 上提交 `git revert`、跑 `npm run ci` 并推送后重新运行发布脚本（不得强推改写 `production`）。
+- **回滚**：也走发布门禁：在 `production` 上提交 `git revert`、跑 `npm run ci` 并推送后重新运行发布脚本（不得强推改写 `production`）。不要绕过发布脚本直接调用 `vercel promote`：那样既不锁定提交，也不做逐字节验收。
 
 ### 限制
 
