@@ -4,6 +4,12 @@
     { "name": "secrets-scan", "argv": ["node", "scripts/ci/secrets-scan.mjs", "git", "--no-banner", "--redact", "--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge", "."] },
     { "name": "seo-and-ci-tests", "argv": ["node", "--test", "tests/seo/*.test.mjs", "tests/ci/*.test.mjs"] }
   ],
+  "docsOnly": {
+    "base": "origin/main",
+    "paths": ["README.md", "docs/"],
+    "fullBranches": ["production"],
+    "skip": ["admission-1", "admission-2", "admission-3"]
+  },
   "env": {},
   "unverified": [
     "托管 CI（.github/workflows/ci.yml 的 gate 任务）在 GitHub 上运行同一份清单（npm run ci:check），它是 main 的必需检查；本地清单仍以 config/release-production.json 的 admissionCommands 为准，另加 SEO 与本地门禁测试",
