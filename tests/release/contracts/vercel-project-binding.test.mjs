@@ -42,3 +42,19 @@ test('invalid config and malformed link fail closed',t=>{
  const d=fixture(t);mkdirSync(path.join(d,'.vercel'));writeFileSync(path.join(d,'.vercel/project.json'),'{');assert.notEqual(run(d).status,0);
  writeFileSync(path.join(d,'config/release-production.json'),JSON.stringify({vercel:{}}));assert.notEqual(run(d).status,0);
 });
+test('find-deployment handles omitted ownerId and null pending url while deployment-state verifies team',t=>{
+ const d=fixture(t);const sha='c'.repeat(40);const nonce='nonce1234';
+ const payload={deployments:[
+  {uid:'dpl_otherowner',projectId:'prj_expected',ownerId:'team_other',target:'production',readyState:'READY',url:'other.vercel.app',meta:{releaseCommitSha:sha,releaseUploadNonce:nonce}},
+  {uid:'dpl_pending1',projectId:'prj_expected',target:'production',readyState:'BUILDING',url:null,meta:{releaseCommitSha:sha,releaseUploadNonce:nonce}},
+ ]};
+ const found=run(d,['--find-deployment',sha,nonce],{},JSON.stringify(payload));
+ assert.equal(found.status,0,found.stderr);
+ assert.equal(found.stdout.trim(),'PENDING dpl_pending1');
+ const detailGood={id:'dpl_pending1',projectId:'prj_expected',ownerId:'team_expected',target:'production',readyState:'READY',url:'ok.vercel.app',meta:{releaseCommitSha:sha,releaseUploadNonce:nonce}};
+ const stateGood=run(d,['--deployment-state',sha,nonce],{},JSON.stringify(detailGood));
+ assert.equal(stateGood.status,0,stateGood.stderr);
+ assert.equal(stateGood.stdout.trim(),'READY https://ok.vercel.app');
+ const stateWrongTeam=run(d,['--deployment-state',sha,nonce],{},JSON.stringify({...detailGood,ownerId:'team_other'}));
+ assert.notEqual(stateWrongTeam.status,0);
+});
