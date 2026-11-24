@@ -6,7 +6,7 @@
   ],
   "docsOnly": {
     "base": "origin/main",
-    "paths": ["README.md", "docs/"],
+    "paths": ["README.md", "docs/release-process.md"],
     "fullBranches": ["production"],
     "skip": ["admission-1", "admission-2", "admission-3"]
   },
