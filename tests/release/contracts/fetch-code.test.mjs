@@ -65,3 +65,16 @@ test('fetch_code does not retry a command that failed before sending a request',
   const { code, ok, calls } = fetchCode(['oops:1', '200']);
   assert.deepEqual({ code, ok, calls }, { code: 'oops', ok: false, calls: 1 });
 });
+
+test('verify_against_commit enforces stall-based read limits and overall verify budget', () => {
+  assert.match(source, /\$READ_LIMITS/);
+  assert.match(source, /VERIFY_BUDGET_SECONDS=/);
+  const { mkdtempSync: mkd, rmSync: rmD } = { mkdtempSync, rmSync };
+  const dir = mkd(path.join(os.tmpdir(), 'snap-budget-'));
+  try {
+    const program = `ROOT_DIR=$1\nD=$2\nVERIFY_BUDGET_SECONDS=600\n${helper}\ndate() { echo 2000; }\nFETCH_DEADLINE=1500\nfake() { printf called >> "$D/called"; printf 200; }\nfetch_code "$D/body" "$D/headers" curl fake`;
+    const result = spawnSync('/bin/bash', ['-c', program, 'test', ROOT, dir], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin` } });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /总时长预算/);
+  } finally { rmD(dir, { recursive: true, force: true }); }
+});

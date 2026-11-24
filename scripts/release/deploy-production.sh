@@ -69,6 +69,11 @@ ACCEPT_PATH="$(config_get acceptance.path)"
 BODY_INCLUDES="$(config_get acceptance.bodyIncludes)"
 REQUIRED_HEADERS="$(config_get acceptance.requiredHeaders)"
 MAX_SECONDS="$(config_get acceptance.maxSeconds)"
+READ_LIMITS="$(node scripts/release/transport-policy.mjs --curl-read-limits)" || fail "transport-policy.mjs 未给出有效的读取限制，拒绝发布"
+READ_LIMITS_FORMAT='^--connect-timeout [1-9][0-9]* --speed-limit [1-9][0-9]* --speed-time [1-9][0-9]* --max-time [1-9][0-9]*$'
+[[ "$READ_LIMITS" =~ $READ_LIMITS_FORMAT ]] || fail "transport-policy.mjs 未给出有效的读取限制，拒绝发布"
+VERIFY_BUDGET_SECONDS="$(node scripts/release/transport-policy.mjs --verify-budget-seconds)" || fail "transport-policy.mjs 未给出有效的校验总预算，拒绝发布"
+[[ "$VERIFY_BUDGET_SECONDS" =~ ^[1-9][0-9]*$ ]] || fail "transport-policy.mjs 未给出有效的校验总预算，拒绝发布"
 [ -n "$DOMAINS" ] || fail "release_config_domains_missing"
 
 echo "========================================================"
@@ -220,13 +225,65 @@ done < "$WORK_DIR/snapshot.tree"
 cp .vercel/project.json "$SNAPSHOT_DIR/.vercel/project.json"
 # Start the CLI inside the snapshot: it reads vercel.json and the project link from its working directory, so a
 # vercel.json changed in the worktree during the release must not shape the build.
-DEPLOY_OUTPUT="$(cd "$SNAPSHOT_DIR" && vercel deploy --meta "releaseCommitSha=${HEAD_SHA}" --prod --skip-domain --yes --scope "$TEAM_ID")"
+UPLOAD_NONCE="$(node -e 'console.log(require("node:crypto").randomBytes(16).toString("hex"))')"
+DEPLOY_STATUS=0
+DEPLOY_OUTPUT="$(cd "$SNAPSHOT_DIR" && vercel deploy --meta "releaseCommitSha=${HEAD_SHA}" --meta "releaseUploadNonce=${UPLOAD_NONCE}" --prod --skip-domain --yes --scope "$TEAM_ID")" || DEPLOY_STATUS=$?
 assert_release_identity "上传后"
-DEPLOY_URL="$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -n 1 || true)"
-if [ -z "$DEPLOY_URL" ]; then
-  echo "❌ 部署未能捕获 Deployment URL，原始输出:" >&2
-  printf '%s\n' "$DEPLOY_OUTPUT" >&2
-  exit 1
+DEPLOY_URL=""
+if [ "$DEPLOY_STATUS" = 0 ]; then
+  DEPLOY_URL="$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -n 1 || true)"
+fi
+if [ "$DEPLOY_STATUS" != 0 ] || [ -z "$DEPLOY_URL" ]; then
+  if [ "$DEPLOY_STATUS" != 0 ]; then
+    echo "⚠️  vercel deploy 退出 ${DEPLOY_STATUS}，先查询 Vercel 是否已创建本次上传对应的部署..." >&2
+  else
+    echo "⚠️  vercel deploy 未输出 Deployment URL，先查询 Vercel 是否已创建本次上传对应的部署..." >&2
+  fi
+  LOOKUP_LINE=""
+  LOOKUP_TRY=1
+  while [ "$LOOKUP_TRY" -le 3 ]; do
+    API_JSON=""
+    if API_JSON="$(vercel api "/v6/deployments?projectId=${PROJECT_ID}&teamId=${TEAM_ID}&limit=20" --scope "$TEAM_ID" --raw)"; then
+      if LOOKUP_LINE="$(printf '%s' "$API_JSON" | node scripts/release/vercel-project-binding.mjs --find-deployment "$HEAD_SHA" "$UPLOAD_NONCE")"; then
+        if [ "$LOOKUP_LINE" != "NONE" ] || [ "$LOOKUP_TRY" -eq 3 ]; then
+          break
+        fi
+      fi
+    fi
+    sleep 2
+    LOOKUP_TRY=$((LOOKUP_TRY + 1))
+  done
+  LOOKUP_STATE="${LOOKUP_LINE%% *}"
+  LOOKUP_ID="${LOOKUP_LINE#* }"
+  if [ "$LOOKUP_STATE" = "READY" ] || [ "$LOOKUP_STATE" = "PENDING" ]; then
+    [ -n "$LOOKUP_ID" ] && [ "$LOOKUP_ID" != "$LOOKUP_LINE" ] || fail "恢复查询未返回有效部署 ID"
+    echo "ℹ️  已定位到本次上传对应的部署 ${LOOKUP_ID}（状态 ${LOOKUP_STATE}），核验详情与身份..." >&2
+    WAIT_STEP=1
+    while [ "$WAIT_STEP" -le 12 ]; do
+      if [ "$LOOKUP_STATE" = "PENDING" ] || [ "$WAIT_STEP" -gt 1 ]; then
+        sleep 5
+      fi
+      DETAIL_JSON=""
+      if DETAIL_JSON="$(vercel api "/v13/deployments/${LOOKUP_ID}" --scope "$TEAM_ID" --raw)"; then
+        POLL_LINE="$(printf '%s' "$DETAIL_JSON" | node scripts/release/vercel-project-binding.mjs --deployment-state "$HEAD_SHA" "$UPLOAD_NONCE")" ||
+          fail "已创建部署 ${LOOKUP_ID} 身份或状态校验失败，已中止"
+        POLL_STATE="${POLL_LINE%% *}"
+        if [ "$POLL_STATE" = "READY" ]; then
+          DEPLOY_URL="${POLL_LINE#* }"
+          break
+        fi
+        LOOKUP_STATE="PENDING"
+      fi
+      WAIT_STEP=$((WAIT_STEP + 1))
+    done
+  fi
+  if [ -n "$DEPLOY_URL" ]; then
+    echo "✅ 已复用到经详情校验的生产部署 ${DEPLOY_URL}，继续预检" >&2
+  else
+    echo "❌ 部署未能完成或未找到已通过身份核验的部署，原始输出:" >&2
+    if [ -n "$DEPLOY_OUTPUT" ]; then printf '%s\n' "$DEPLOY_OUTPUT" >&2; fi
+    exit 1
+  fi
 fi
 
 # 切域名之前先比对部署内容（经 Vercel 受保护访问读取候选）：不一致就中止，生产域名保持不动。
@@ -241,7 +298,7 @@ echo "👉 [7/8] 核对部署身份并 Promote 到生产域名..."
 # A successful CLI response is not sufficient: verify the deployed resource identity.
 node scripts/release/vercel-project-binding.mjs --check
 vercel api "/v13/deployments/${DEPLOY_URL#https://}" --scope "$TEAM_ID" --raw |
-  node scripts/release/vercel-project-binding.mjs --deployment "$HEAD_SHA"
+  node scripts/release/vercel-project-binding.mjs --deployment "$HEAD_SHA" "$UPLOAD_NONCE"
 # The candidate check reads every asset; production may have moved meanwhile, so the locked commit must still be
 # the remote tip right before the domains switch.
 assert_release_identity "Promote 前"
