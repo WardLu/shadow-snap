@@ -1,14 +1,43 @@
 {
-  "include": ["admissionCommands"],
+  "include": [
+    "admissionCommands"
+  ],
   "checks": [
-    { "name": "secrets-scan", "argv": ["node", "scripts/ci/secrets-scan.mjs", "git", "--no-banner", "--redact", "--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge", "."] },
-    { "name": "seo-and-ci-tests", "argv": ["node", "--test", "tests/seo/*.test.mjs", "tests/ci/*.test.mjs"] }
+    {
+      "name": "secrets-scan",
+      "argv": [
+        "node",
+        "scripts/ci/secrets-scan.mjs",
+        "git",
+        "--no-banner",
+        "--redact",
+        "--log-opts=--all --full-history --diff-filter=tuxdb --diff-merges=remerge",
+        "."
+      ]
+    },
+    {
+      "name": "seo-and-ci-tests",
+      "argv": [
+        "node",
+        "--test",
+        "tests/seo/*.test.mjs",
+        "tests/ci/*.test.mjs"
+      ]
+    }
   ],
   "docsOnly": {
     "base": "origin/main",
-    "paths": ["README.md", "docs/release-process.md"],
-    "fullBranches": ["production"],
-    "skip": ["admission-1", "admission-2", "admission-3"]
+    "paths": [
+      "README.md",
+      "docs/release-process.md"
+    ],
+    "fullBranches": [
+      "production"
+    ],
+    "skip": [
+      "admission-1",
+      "admission-2"
+    ]
   },
   "env": {},
   "unverified": [
