@@ -35,8 +35,7 @@
       "production"
     ],
     "skip": [
-      "admission-1",
-      "admission-2"
+      "admission-1"
     ]
   },
   "env": {},
